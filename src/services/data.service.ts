@@ -1,7 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 
-const DATA_PATH = path.join(__dirname, '../../data/store.json');
+const DATA_DIR = path.join(__dirname, '../../data');
+const DATA_PATH = path.join(DATA_DIR, 'store.json');
+const TEMPLATE_PATH = path.join(DATA_DIR, 'store.template.json');
 
 export interface User {
   id: number;
@@ -345,6 +347,48 @@ class DataService {
   }
 
   private load(): Store {
+    // Ensure data directory exists
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+
+    // If store.json doesn't exist, create it from template or empty
+    if (!fs.existsSync(DATA_PATH)) {
+      console.log('[DataService] store.json not found, initializing...');
+      if (fs.existsSync(TEMPLATE_PATH)) {
+        console.log('[DataService] Copying from store.template.json');
+        fs.copyFileSync(TEMPLATE_PATH, DATA_PATH);
+      } else {
+        console.log('[DataService] Creating empty store.json');
+        const empty: Store = {
+          users: [{
+            id: 1, nombre: 'Admin', apellido: '', usuario: 'admin',
+            email: 'admin@gana463.com',
+            password: '$2a$10$8KxGfMVBRKjFnxzFQj6bPO9sAB0wYhKmXqzFGvPLJz0UQ0YHnJHy6', // 123456
+            rol: 'admin', estatus: 'active', inicio: null, fin: null,
+            restriccion: '', createdAt: new Date().toISOString(),
+          }],
+          clients: [], commands: [], autoMessages: [],
+          apiConfig: {
+            casino: { token: '', url: '', user: '', password: '', cajaId: '' },
+            aws: { accessKey: '', secretKey: '', region: '' },
+            openrouter: { apiKey: '', model: '' },
+            openai: { apiKey: '', model: 'gpt-4o-mini' },
+          },
+          accounts: [],
+          settings: { siteName: 'Casino 463', siteUrl: '', chatMode: 'auto' as const, telepagosAI: false, minRetiro: 0, minDeposito: 0, bonoBienvenida: '', timezone: 'America/Argentina/Buenos_Aires', buttonOptions: { carga: { type: 'option' as const, link: '', enabled: true }, retiro: { type: 'option' as const, link: '', enabled: true }, soporte: { type: 'option' as const, link: '', enabled: true }, cuponera: { type: 'link' as const, link: 'https://463.life', enabled: true } }, modalConfig: {} as any },
+          chats: [], chatMessages: {}, payments: [], labels: [],
+          pushSubscriptions: [], sentNotifications: [],
+          popupMessages: [], popupTemplates: [],
+          events: [], eventEntries: [],
+          activityLogs: [], dailyAggregates: [],
+          paltaTransactions: [],
+          paltaConfig: { email: '', password: '', enabled: false, pollIntervalSeconds: 60, autoApprove: true, headless: true, lastPollAt: null, status: 'stopped' as const, errorMessage: '' },
+        };
+        fs.writeFileSync(DATA_PATH, JSON.stringify(empty, null, 2));
+      }
+    }
+
     try {
       const raw = fs.readFileSync(DATA_PATH, 'utf-8');
       const data = JSON.parse(raw);
