@@ -169,26 +169,83 @@ class PaltaService {
       // Check if login is needed
       const currentUrl = this.page!.url();
       if (currentUrl.includes('/auth')) {
-        console.log('[Palta] 🔐 Login manual requerido');
-        dataService.updatePaltaConfig({ status: 'login_required', errorMessage: '' });
-        this.emitStatus();
+        const config = dataService.getPaltaConfig();
 
-        // Wait for manual login (up to 5 minutes)
-        for (let i = 0; i < 100; i++) {
-          await this.delay(3000);
-          if (!this.page || !this.browser) {
-            return { success: false, message: 'Navegador cerrado durante login' };
-          }
-          const url = this.page.url();
-          if (!url.includes('/auth')) {
-            console.log('[Palta] ✅ Login detectado');
-            break;
+        // Try auto-login if credentials are configured (headless/server mode)
+        if (config.email && config.password) {
+          console.log('[Palta] 🔐 Auto-login con credenciales guardadas...');
+          dataService.updatePaltaConfig({ status: 'logging_in', errorMessage: '' });
+          this.emitStatus();
+
+          try {
+            // Wait for login form to be ready
+            await this.delay(2000);
+
+            // Try to find and fill email field
+            const emailSelector = 'input[type="email"], input[name="email"], input[placeholder*="mail"], input[placeholder*="correo"]';
+            const passwordSelector = 'input[type="password"], input[name="password"]';
+            const submitSelector = 'button[type="submit"], button:not([type])';
+
+            await this.page!.waitForSelector(emailSelector, { timeout: 10000 });
+            await this.page!.type(emailSelector, config.email, { delay: 50 });
+            await this.delay(500);
+
+            await this.page!.waitForSelector(passwordSelector, { timeout: 5000 });
+            await this.page!.type(passwordSelector, config.password, { delay: 50 });
+            await this.delay(500);
+
+            // Click submit
+            await this.page!.click(submitSelector);
+            console.log('[Palta] 📤 Formulario de login enviado, esperando respuesta...');
+
+            // Wait for navigation away from /auth
+            for (let i = 0; i < 20; i++) {
+              await this.delay(3000);
+              if (!this.page || !this.browser) {
+                return { success: false, message: 'Navegador cerrado durante login' };
+              }
+              const url = this.page.url();
+              if (!url.includes('/auth')) {
+                console.log('[Palta] ✅ Auto-login exitoso');
+                break;
+              }
+            }
+
+            if (this.page?.url().includes('/auth')) {
+              console.log('[Palta] ❌ Auto-login falló (credenciales incorrectas o 2FA requerido)');
+              dataService.updatePaltaConfig({ status: 'login_required', errorMessage: 'Auto-login falló. Verifica email/password en config de Palta.' });
+              this.emitStatus();
+              return { success: false, message: 'Auto-login falló. Verifica credenciales.', loginRequired: true };
+            }
+          } catch (autoLoginErr: any) {
+            console.log(`[Palta] ⚠️ Auto-login error: ${autoLoginErr.message}. Esperando login manual...`);
+            // Fall through to manual login wait
           }
         }
 
+        // If still on auth page, wait for manual login (local dev with visible browser)
         if (this.page?.url().includes('/auth')) {
-          dataService.updatePaltaConfig({ status: 'login_required', errorMessage: 'Timeout esperando login' });
-          return { success: false, message: 'Timeout esperando login manual', loginRequired: true };
+          console.log('[Palta] 🔐 Login manual requerido');
+          dataService.updatePaltaConfig({ status: 'login_required', errorMessage: '' });
+          this.emitStatus();
+
+          // Wait for manual login (up to 5 minutes)
+          for (let i = 0; i < 100; i++) {
+            await this.delay(3000);
+            if (!this.page || !this.browser) {
+              return { success: false, message: 'Navegador cerrado durante login' };
+            }
+            const url = this.page.url();
+            if (!url.includes('/auth')) {
+              console.log('[Palta] ✅ Login detectado');
+              break;
+            }
+          }
+
+          if (this.page?.url().includes('/auth')) {
+            dataService.updatePaltaConfig({ status: 'login_required', errorMessage: 'Timeout esperando login' });
+            return { success: false, message: 'Timeout esperando login manual', loginRequired: true };
+          }
         }
       }
 
