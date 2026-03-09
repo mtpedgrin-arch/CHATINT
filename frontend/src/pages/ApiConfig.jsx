@@ -4,15 +4,11 @@ import { useToast } from '../context/ToastContext';
 
 const defaultConfig = {
   casino: { token: '', url: '', user: '', password: '', cajaId: '' },
-  aws: { accessKey: '', secretKey: '', region: '' },
-  openrouter: { apiKey: '', model: '' },
   openai: { apiKey: '', model: 'gpt-4o-mini' },
 };
 
 const sectionLabels = {
   casino: 'Casino 463',
-  aws: 'AWS',
-  openrouter: 'OpenRouter',
   openai: 'OpenAI',
 };
 
@@ -20,8 +16,6 @@ const sectionLabels = {
 // We track which fields the user has actually edited
 const SENSITIVE_FIELDS = {
   casino: ['token', 'password'],
-  aws: ['accessKey', 'secretKey'],
-  openrouter: ['apiKey'],
   openai: ['apiKey'],
 };
 
@@ -35,9 +29,6 @@ export default function ApiConfig() {
   const [visibility, setVisibility] = useState({
     casinoToken: false,
     casinoPassword: false,
-    awsAccessKey: false,
-    awsSecretKey: false,
-    openrouterApiKey: false,
     openaiApiKey: false,
   });
 
@@ -52,15 +43,6 @@ export default function ApiConfig() {
           user: data.casino?.user || '',
           password: data.casino?.password || '',
           cajaId: data.casino?.cajaId || '',
-        },
-        aws: {
-          accessKey: data.aws?.accessKey || '',
-          secretKey: data.aws?.secretKey || '',
-          region: data.aws?.region || '',
-        },
-        openrouter: {
-          apiKey: data.openrouter?.apiKey || '',
-          model: data.openrouter?.model || '',
         },
         openai: {
           apiKey: data.openai?.apiKey || '',
@@ -248,53 +230,6 @@ export default function ApiConfig() {
             </div>
             <button className="btn btn-gold" onClick={() => handleSave('openai')} disabled={saving.openai} style={{ width: '100%', marginTop: '0.5rem' }}>
               {saving.openai ? 'Guardando...' : 'Guardar'}
-            </button>
-          </div>
-        </div>
-
-        {/* AWS */}
-        <div className="card">
-          <div className="card-header">
-            <span><span style={{ marginRight: '0.5rem' }}>{'\u2601\uFE0F'}</span> AWS</span>
-          </div>
-          <div className="card-body">
-            {renderSensitiveInput('aws', 'accessKey', 'awsAccessKey', 'AKIA...', 'Access Key', null)}
-            {renderSensitiveInput('aws', 'secretKey', 'awsSecretKey', 'Secret key', 'Secret Key', null)}
-            <div className="form-group">
-              <label>Region</label>
-              <input
-                className="form-input"
-                type="text"
-                value={config.aws.region}
-                onChange={(e) => handleChange('aws', 'region', e.target.value)}
-                placeholder="us-east-1"
-              />
-            </div>
-            <button className="btn btn-gold" onClick={() => handleSave('aws')} disabled={saving.aws} style={{ width: '100%', marginTop: '0.5rem' }}>
-              {saving.aws ? 'Guardando...' : 'Guardar'}
-            </button>
-          </div>
-        </div>
-
-        {/* OpenRouter AI */}
-        <div className="card">
-          <div className="card-header">
-            <span><span style={{ marginRight: '0.5rem' }}>{'\uD83E\uDD16'}</span> OpenRouter AI</span>
-          </div>
-          <div className="card-body">
-            {renderSensitiveInput('openrouter', 'apiKey', 'openrouterApiKey', 'sk-or-...', 'API Key', null)}
-            <div className="form-group">
-              <label>Model</label>
-              <input
-                className="form-input"
-                type="text"
-                value={config.openrouter.model}
-                onChange={(e) => handleChange('openrouter', 'model', e.target.value)}
-                placeholder="openai/gpt-4o"
-              />
-            </div>
-            <button className="btn btn-gold" onClick={() => handleSave('openrouter')} disabled={saving.openrouter} style={{ width: '100%', marginTop: '0.5rem' }}>
-              {saving.openrouter ? 'Guardando...' : 'Guardar'}
             </button>
           </div>
         </div>
