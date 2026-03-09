@@ -76,20 +76,30 @@ class PaltaService {
     const useHeadless = config.headless ?? true; // default: headless (servidor/Docker)
     console.log(`[Palta] Browser mode: ${useHeadless ? 'HEADLESS (servidor)' : 'VISIBLE (para login manual)'}`);
 
-    // Clean stale Chromium lock files (prevents "profile in use" errors after crash/restart)
-    const lockFiles = ['SingletonLock', 'SingletonSocket', 'SingletonCookie'];
-    lockFiles.forEach(f => {
-      const lockPath = path.join(USER_DATA_DIR, f);
-      try { if (fs.existsSync(lockPath)) { fs.unlinkSync(lockPath); console.log(`[Palta] Removed stale lock: ${f}`); } } catch (_) {}
-    });
+    // In headless/server mode: don't use userDataDir (avoids lock conflicts in Docker)
+    // In visible mode (local dev): use userDataDir to persist login session
+    if (useHeadless) {
+      // Clean any stale lock files just in case
+      const lockFiles = ['SingletonLock', 'SingletonSocket', 'SingletonCookie'];
+      lockFiles.forEach(f => {
+        const lockPath = path.join(USER_DATA_DIR, f);
+        try { if (fs.existsSync(lockPath)) fs.unlinkSync(lockPath); } catch (_) {}
+      });
+    }
 
-    this.browser = await (puppeteer as any).launch({
+    const launchOptions: any = {
       headless: useHeadless ? 'new' : false,
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
-      userDataDir: USER_DATA_DIR,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--window-size=1280,800'],
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--window-size=1280,800'],
       defaultViewport: { width: 1280, height: 800 },
-    });
+    };
+
+    // Only use userDataDir in non-headless mode (local dev with persistent session)
+    if (!useHeadless) {
+      launchOptions.userDataDir = USER_DATA_DIR;
+    }
+
+    this.browser = await (puppeteer as any).launch(launchOptions);
 
     const pages = await this.browser!.pages();
     this.page = pages[0] || await this.browser!.newPage();
