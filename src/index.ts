@@ -151,7 +151,12 @@ app.get('/sw.js', (_req, res, next) => {
   next();
 });
 
-// Static files
+// Static files — serve frontend build FIRST (production), then public/ (widget, images, etc.)
+const frontendDistPath = path.join(__dirname, '../frontend/dist');
+const frontendIndexPath = path.join(frontendDistPath, 'index.html');
+if (fs.existsSync(frontendDistPath)) {
+  app.use(express.static(frontendDistPath));
+}
 app.use(express.static(path.join(__dirname, '../public')));
 
 // ============================================
@@ -224,13 +229,6 @@ app.post('/api/debug/test-popup', (req, res) => {
 
   res.json({ ok: true, emitted: payload });
 });
-
-// Serve frontend build (production) — React admin panel
-const frontendDistPath = path.join(__dirname, '../frontend/dist');
-const frontendIndexPath = path.join(frontendDistPath, 'index.html');
-if (fs.existsSync(frontendDistPath)) {
-  app.use(express.static(frontendDistPath));
-}
 
 // SPA fallback — serve React build if available, otherwise dev redirect page
 app.get('*', (_req, res) => {
