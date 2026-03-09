@@ -257,35 +257,35 @@ router.post('/test-popup', (req: Request, res: Response) => {
   });
 });
 
-// ── COOKIES: Export/Import for Railway persistence ──
-// Export cookies (download from local after manual login)
-router.get('/cookies', (_req: Request, res: Response) => {
+// ── AUTH TOKEN: Export/Import for Railway (API mode without browser) ──
+// Export token (get from local after manual login)
+router.get('/token', (_req: Request, res: Response) => {
   try {
-    const cookiesPath = require('path').join(__dirname, '../../data/palta-session/cookies.json');
+    const tokenPath = require('path').join(__dirname, '../../data/palta-session/auth-token.json');
     const fs = require('fs');
-    if (!fs.existsSync(cookiesPath)) {
-      return res.status(404).json({ error: 'No hay cookies guardadas. Logueate primero localmente.' });
+    if (!fs.existsSync(tokenPath)) {
+      return res.status(404).json({ error: 'No hay token guardado. Logueate primero localmente para capturar el token.' });
     }
-    const cookies = JSON.parse(fs.readFileSync(cookiesPath, 'utf-8'));
-    res.json({ cookies, count: cookies.length });
+    const data = JSON.parse(fs.readFileSync(tokenPath, 'utf-8'));
+    res.json(data);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Import cookies (upload to Railway so it can skip login)
-router.post('/cookies', (req: Request, res: Response) => {
+// Import token (upload to Railway so it can use API mode)
+router.post('/token', (req: Request, res: Response) => {
   try {
-    const { cookies } = req.body;
-    if (!cookies || !Array.isArray(cookies)) {
-      return res.status(400).json({ error: 'Enviar { cookies: [...] }' });
+    const { token } = req.body;
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ error: 'Enviar { token: "..." }' });
     }
-    const cookiesPath = require('path').join(__dirname, '../../data/palta-session/cookies.json');
+    const tokenPath = require('path').join(__dirname, '../../data/palta-session/auth-token.json');
     const fs = require('fs');
-    const dir = require('path').dirname(cookiesPath);
+    const dir = require('path').dirname(tokenPath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(cookiesPath, JSON.stringify(cookies, null, 2));
-    res.json({ success: true, message: `${cookies.length} cookies importadas`, count: cookies.length });
+    fs.writeFileSync(tokenPath, JSON.stringify({ token, savedAt: new Date().toISOString() }));
+    res.json({ success: true, message: 'Token importado. Ahora podés iniciar Palta en API mode.' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

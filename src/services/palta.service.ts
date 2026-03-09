@@ -10,6 +10,8 @@ puppeteer.use(StealthPlugin());
 const SESSION_DIR = path.join(__dirname, '../../data/palta-session');
 const USER_DATA_DIR = path.join(SESSION_DIR, 'chrome-profile');
 const COOKIES_PATH = path.join(SESSION_DIR, 'cookies.json');
+const TOKEN_PATH = path.join(SESSION_DIR, 'auth-token.json');
+const PALTA_API_BASE = 'https://activa-app.palta.app';
 
 // Ensure directories exist
 [SESSION_DIR, USER_DATA_DIR].forEach(dir => {
@@ -49,6 +51,8 @@ class PaltaService {
   private capturedPageCount = 0;
   private io: any = null;
   private isPolling = false;
+  private authToken: string | null = null;  // Captured auth token for direct API mode
+  private apiMode = false;  // true = direct API calls (no browser needed)
 
   setIO(io: any) {
     this.io = io;
@@ -97,6 +101,121 @@ class PaltaService {
     }
   }
 
+  // ─── AUTH TOKEN MANAGEMENT (for direct API mode) ───
+
+  private saveToken(token: string): void {
+    try {
+      this.authToken = token;
+      fs.writeFileSync(TOKEN_PATH, JSON.stringify({ token, savedAt: new Date().toISOString() }));
+      console.log(`[Palta] 🔑 Auth token guardado`);
+    } catch (err: any) {
+      console.error(`[Palta] Error guardando token: ${err.message}`);
+    }
+  }
+
+  private loadToken(): string | null {
+    try {
+      if (!fs.existsSync(TOKEN_PATH)) return null;
+      const data = JSON.parse(fs.readFileSync(TOKEN_PATH, 'utf-8'));
+      if (data.token) {
+        console.log(`[Palta] 🔑 Token cargado desde archivo (guardado: ${data.savedAt})`);
+        return data.token;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  // Direct API call using saved token (no browser needed!)
+  private async apiCall(endpoint: string, params?: Record<string, string>): Promise<any> {
+    if (!this.authToken) throw new Error('No hay token de autenticación');
+    const url = new URL(endpoint, PALTA_API_BASE);
+    if (params) {
+      for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+    }
+    const resp = await fetch(url.toString(), {
+      headers: {
+        'Authorization': `Bearer ${this.authToken}`,
+        'Accept': 'application/json',
+      },
+    });
+    if (resp.status === 401) {
+      this.authToken = null;
+      throw new Error('Token expirado. Necesita re-login.');
+    }
+    if (!resp.ok) throw new Error(`API error ${resp.status}`);
+    return resp.json();
+  }
+
+  // Try to init using saved token (API-only mode, no browser)
+  async initApiMode(): Promise<{ success: boolean; message: string }> {
+    const token = this.loadToken();
+    if (!token) {
+      return { success: false, message: 'No hay token guardado. Logueate primero localmente.' };
+    }
+    this.authToken = token;
+
+    try {
+      // Test the token
+      const meResp = await this.apiCall('/api/me');
+      if (meResp.data?.user?._id) {
+        this.userId = meResp.data.user._id;
+        this.userInfo = meResp.data.user;
+        console.log(`[Palta] ✅ API mode: logueado como ${this.userInfo.name} ${this.userInfo.lastname}`);
+      }
+
+      // Get wallet
+      const walletsResp = await this.apiCall('/api/wallets');
+      if (walletsResp.data?.wallets?.[0]?._id) {
+        this.walletId = walletsResp.data.wallets[0]._id;
+      }
+
+      this.apiMode = true;
+      dataService.updatePaltaConfig({ status: 'running', errorMessage: '' });
+      this.emitStatus();
+      return { success: true, message: `API mode activo — ${this.userInfo?.name || 'OK'}` };
+    } catch (err: any) {
+      this.authToken = null;
+      this.apiMode = false;
+      return { success: false, message: `Token inválido: ${err.message}` };
+    }
+  }
+
+  // Fetch activities via direct API (no browser)
+  async getActivitiesApi(): Promise<PaltaActivity[]> {
+    if (!this.authToken || !this.walletId) throw new Error('API mode no inicializado');
+
+    const allActivities: PaltaActivity[] = [];
+    const pages = 3;
+
+    for (let page = 1; page <= pages; page++) {
+      try {
+        const resp = await this.apiCall(`/api/wallets/${this.walletId}/activities`, {
+          page: String(page),
+          limit: '50',
+        });
+        if (resp.data?.activities?.length > 0) {
+          allActivities.push(...resp.data.activities);
+          console.log(`[Palta-API] Página ${page}: ${resp.data.activities.length} transacciones`);
+        } else {
+          break;
+        }
+      } catch (err: any) {
+        console.error(`[Palta-API] Error página ${page}: ${err.message}`);
+        break;
+      }
+    }
+
+    // Deduplicate
+    const seen = new Set<string>();
+    return allActivities.filter(a => {
+      if (seen.has(a._id)) return false;
+      seen.add(a._id);
+      return true;
+    });
+  }
+
   // ─── BROWSER MANAGEMENT ───────────────────────
 
   private async launchBrowser(): Promise<void> {
@@ -131,6 +250,18 @@ class PaltaService {
 
     const pages = await this.browser!.pages();
     this.page = pages[0] || await this.browser!.newPage();
+
+    // Intercept API requests to capture auth token
+    this.page.on('request', (request: any) => {
+      const authHeader = request.headers()['authorization'];
+      if (authHeader && authHeader.startsWith('Bearer ') && request.url().includes('palta.app')) {
+        const token = authHeader.replace('Bearer ', '');
+        if (token && token !== this.authToken) {
+          this.saveToken(token);
+          console.log('[Palta] 🔑 Auth token capturado del browser!');
+        }
+      }
+    });
 
     // Intercept API responses
     this.page.on('response', async (response: any) => {
@@ -181,8 +312,22 @@ class PaltaService {
 
   async init(): Promise<{ success: boolean; message: string; loginRequired?: boolean }> {
     try {
+      if (this.apiMode && this.authToken) {
+        return { success: true, message: 'Ya está corriendo (API mode)' };
+      }
       if (this.browser) {
-        return { success: true, message: 'Ya está corriendo' };
+        return { success: true, message: 'Ya está corriendo (browser mode)' };
+      }
+
+      // Try API mode first (no browser needed — uses saved token)
+      const config = dataService.getPaltaConfig();
+      if (config.headless) {
+        console.log('[Palta] 🚀 Intentando API mode (sin browser)...');
+        const apiResult = await this.initApiMode();
+        if (apiResult.success) {
+          return { success: true, message: apiResult.message };
+        }
+        console.log(`[Palta] API mode no disponible: ${apiResult.message}. Intentando browser...`);
       }
 
       console.log('[Palta] 🌐 Iniciando navegador...');
@@ -679,7 +824,8 @@ class PaltaService {
     this.isPolling = true;
 
     try {
-      const activities = await this.getActivities();
+      // Use API mode if available, otherwise browser mode
+      const activities = this.apiMode ? await this.getActivitiesApi() : await this.getActivities();
       const incoming = activities.filter(a => a.counterparty && a.amount > 0);
 
       let newCount = 0;
