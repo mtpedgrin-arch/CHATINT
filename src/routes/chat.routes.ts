@@ -679,6 +679,21 @@ router.post('/widget/upload', (req: Request, res: Response) => {
     // ── ASYNC: OCR + PALTA AUTO-VERIFY ──
     // Run after responding to the client (non-blocking)
     const chat = dataService.getChatById(chatId);
+    if (chat && (chat.state === 'carga_verificando' || chat.state === 'carga_comprobante') && !ocrService.isConfigured()) {
+      // OCR not configured — notify user and agents
+      console.log(`[OCR+Palta] OCR no configurado (falta API key de OpenAI). Comprobante queda para revisión manual.`);
+      const manualMsg = dataService.addChatMessage({
+        chatId,
+        sender: 'bot',
+        senderName: 'Casino 463',
+        text: '📋 Comprobante recibido. Un asistente lo revisará en breve.',
+        type: 'text',
+      });
+      if (io) {
+        io.to(`chat:${chatId}`).emit('message:new', manualMsg);
+        io.to('agents').emit('message:new', manualMsg);
+      }
+    }
     if (chat && (chat.state === 'carga_verificando' || chat.state === 'carga_comprobante') && ocrService.isConfigured()) {
       (async () => {
         try {
@@ -689,6 +704,19 @@ router.post('/widget/upload', (req: Request, res: Response) => {
 
           if (!ocrResult.success || !ocrResult.amount || !ocrResult.senderName) {
             console.log(`[OCR+Palta] OCR no pudo extraer datos suficientes: ${ocrResult.error || 'nombre o monto faltante'}`);
+
+            // Notify user that manual review is needed
+            const ocrFailMsg = dataService.addChatMessage({
+              chatId,
+              sender: 'bot',
+              senderName: 'Casino 463',
+              text: '📋 Recibimos tu comprobante. No pudimos leerlo automáticamente, un asistente lo revisará en breve.',
+              type: 'text',
+            });
+            if (io) {
+              io.to(`chat:${chatId}`).emit('message:new', ocrFailMsg);
+              io.to('agents').emit('message:new', ocrFailMsg);
+            }
 
             // Notify agents about OCR result
             if (io) {
@@ -805,9 +833,35 @@ router.post('/widget/upload', (req: Request, res: Response) => {
             }
           } else {
             console.log(`[OCR+Palta] Palta no está activo o auto-approve desactivado. Payment queda pendiente.`);
+            // Notify user that payment is pending manual review
+            const pendingMsg = dataService.addChatMessage({
+              chatId,
+              sender: 'bot',
+              senderName: 'Casino 463',
+              text: `📋 Recibimos tu comprobante por $${ocrResult.amount.toLocaleString('es-AR')}. Un asistente verificará tu transferencia en breve.`,
+              type: 'text',
+            });
+            if (io) {
+              io.to(`chat:${chatId}`).emit('message:new', pendingMsg);
+              io.to('agents').emit('message:new', pendingMsg);
+            }
           }
         } catch (err: any) {
           console.error(`[OCR+Palta] Error en flujo async:`, err.message);
+          // Notify user about the error so they don't wait forever
+          try {
+            const errMsg = dataService.addChatMessage({
+              chatId,
+              sender: 'bot',
+              senderName: 'Casino 463',
+              text: '⚠️ Hubo un problema procesando tu comprobante. Un asistente lo revisará manualmente.',
+              type: 'text',
+            });
+            if (io) {
+              io.to(`chat:${chatId}`).emit('message:new', errMsg);
+              io.to('agents').emit('message:new', errMsg);
+            }
+          } catch (_) { /* prevent double-error */ }
         }
       })();
     }
