@@ -76,11 +76,18 @@ class PaltaService {
     const useHeadless = config.headless ?? true; // default: headless (servidor/Docker)
     console.log(`[Palta] Browser mode: ${useHeadless ? 'HEADLESS (servidor)' : 'VISIBLE (para login manual)'}`);
 
+    // Clean stale Chromium lock files (prevents "profile in use" errors after crash/restart)
+    const lockFiles = ['SingletonLock', 'SingletonSocket', 'SingletonCookie'];
+    lockFiles.forEach(f => {
+      const lockPath = path.join(USER_DATA_DIR, f);
+      try { if (fs.existsSync(lockPath)) { fs.unlinkSync(lockPath); console.log(`[Palta] Removed stale lock: ${f}`); } } catch (_) {}
+    });
+
     this.browser = await (puppeteer as any).launch({
       headless: useHeadless ? 'new' : false,
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
       userDataDir: USER_DATA_DIR,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1280,800'],
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--window-size=1280,800'],
       defaultViewport: { width: 1280, height: 800 },
     });
 
