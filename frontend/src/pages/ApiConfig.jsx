@@ -116,6 +116,8 @@ export default function ApiConfig() {
 
       await updateApiConfig(section, dataToSend);
       toast(`Configuracion de ${sectionLabels[section] || section} guardada`);
+      // Re-fetch config to show masked values (visual confirmation that it saved)
+      await fetchConfig();
     } catch (err) {
       toast(err.message, 'error');
     } finally {
