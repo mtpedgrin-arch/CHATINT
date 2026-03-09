@@ -311,7 +311,7 @@ export interface PaltaConfig {
   autoApprove: boolean;
   headless: boolean;
   lastPollAt: string | null;
-  status: 'stopped' | 'running' | 'login_required' | 'error';
+  status: 'stopped' | 'running' | 'login_required' | 'logging_in' | 'error';
   errorMessage: string;
 }
 
