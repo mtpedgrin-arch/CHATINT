@@ -1,0 +1,1458 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "nombre": "Admin",
+      "apellido": "463",
+      "usuario": "admin",
+      "email": "admin@gana463.com",
+      "password": "$2a$10$aFFuBiSUNLXjkJOv1jx4mOIYPrxRYoFs21n5xxl7hmYhOYec.2Fh6",
+      "rol": "admin",
+      "estatus": "active",
+      "inicio": null,
+      "fin": null,
+      "restriccion": "Acceso libre",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "id": 2,
+      "nombre": "Boss",
+      "apellido": "463",
+      "usuario": "boss",
+      "email": "boss@gana463.com",
+      "password": "$2a$10$32EzthhwJn7DaI1S322Gj.HbMih0evlOD./h2pu9jHr1BYq7z7NW.",
+      "rol": "admin",
+      "estatus": "active",
+      "inicio": null,
+      "fin": null,
+      "restriccion": "Acceso libre",
+      "createdAt": "2026-03-07T00:00:00.000Z"
+    }
+  ],
+  "clients": [],
+  "payments": [],
+  "commands": [
+    {
+      "id": 1,
+      "nombre": "Ayuda",
+      "comando": "/help",
+      "mensaje": "Bienvenido, en que podemos ayudarle?",
+      "estatus": "active"
+    },
+    {
+      "id": 2,
+      "nombre": "Soporte",
+      "comando": "/support",
+      "mensaje": "Por favor, proporciona detalles sobre tu problema.",
+      "estatus": "active"
+    },
+    {
+      "id": 3,
+      "nombre": "Inicio",
+      "comando": "/start",
+      "mensaje": "Hola, como podemos ayudarte hoy?",
+      "estatus": "active"
+    },
+    {
+      "id": 4,
+      "nombre": "Promocion",
+      "comando": "/promo",
+      "mensaje": "Obtene un descuento del 200% en tu primer deposito!",
+      "estatus": "active"
+    },
+    {
+      "id": 5,
+      "nombre": "Estado",
+      "comando": "/status",
+      "mensaje": "Tu pedido esta siendo procesado. Gracias por tu paciencia!",
+      "estatus": "active"
+    },
+    {
+      "id": 6,
+      "nombre": "Contacto",
+      "comando": "/contact",
+      "mensaje": "Podes contactarnos por WhatsApp o por el chat.",
+      "estatus": "active"
+    }
+  ],
+  "autoMessages": [
+    {
+      "id": 1,
+      "tipo": "welcome",
+      "mensaje": "¡TE DOY LA BIENVENIDA! 🎰\n\nTu nombre de USUARIO es: {{username}}\nTu CONTRASEÑA es: {{password}}\n\n¡Empezá a jugar ahora!",
+      "categoria": "bienvenida"
+    },
+    {
+      "id": 2,
+      "tipo": "opciones",
+      "mensaje": "❤️ Elegí la opción que necesites:",
+      "categoria": "bienvenida"
+    },
+    {
+      "id": 3,
+      "tipo": "cuenta",
+      "mensaje": "¿Desea recibir los datos por CBU o ALIAS?",
+      "categoria": "carga"
+    },
+    {
+      "id": 4,
+      "tipo": "cbu_selected",
+      "mensaje": "📋 Datos para transferencia por CBU:\n\nCBU: {{cbu}}\nTitular: {{titular}}\n\nEnviá el comprobante con todos los datos visibles 🧾",
+      "categoria": "carga"
+    },
+    {
+      "id": 5,
+      "tipo": "alias_selected",
+      "mensaje": "📋 Datos para transferencia por ALIAS:\n\nALIAS: {{alias}}\nTitular: {{titular}}\n\nEnviá el comprobante con todos los datos visibles 🧾",
+      "categoria": "carga"
+    },
+    {
+      "id": 6,
+      "tipo": "deposito_completado",
+      "mensaje": "🎰 ¡CARGA COMPLETADA CON ÉXITO!\n\n💰 Monto: ${{amount}} ARS\n✅ Ya podés empezar a jugar\n\n¡Buena suerte!",
+      "categoria": "carga"
+    },
+    {
+      "id": 7,
+      "tipo": "deposito_fallido",
+      "mensaje": "❗ El depósito ha sido marcado como fallido ❗\n\nSi creés que es un error, contactá a soporte.",
+      "categoria": "carga"
+    },
+    {
+      "id": 8,
+      "tipo": "comprobante_invalido",
+      "mensaje": "No pudimos validar el comprobante. Por favor sacá una captura con TODOS los datos visibles y mandalo nueva.",
+      "categoria": "error"
+    },
+    {
+      "id": 9,
+      "tipo": "comprobante_duplicado",
+      "mensaje": "⚠️ El comprobante ingresado ya fue registrado anteriormente ⚠️\n\nSi realizaste una nueva transferencia, enviá el nuevo comprobante.",
+      "categoria": "error"
+    },
+    {
+      "id": 10,
+      "tipo": "falla_lectura",
+      "mensaje": "Falla en la lectura del comprobante ❌\n\nPor favor enviá una imagen más clara.",
+      "categoria": "error"
+    },
+    {
+      "id": 11,
+      "tipo": "missing_transaction_id",
+      "mensaje": "No se pudo identificar el ID de la transacción en el comprobante.\n\nPor favor enviá una captura donde se vea el número de operación.",
+      "categoria": "error"
+    },
+    {
+      "id": 12,
+      "tipo": "amount_too_low",
+      "mensaje": "El monto del comprobante es menor al mínimo requerido de {{min_amount}} ARS.\n\nPor favor, cargá un comprobante con un monto válido.",
+      "categoria": "error"
+    },
+    {
+      "id": 13,
+      "tipo": "retry",
+      "mensaje": "Cargá tu comprobante nuevamente por favor 🙏",
+      "categoria": "error"
+    },
+    {
+      "id": 14,
+      "tipo": "pending",
+      "mensaje": "Tu comprobante está pendiente de revisión. Un administrador te contactará pronto.",
+      "categoria": "manual"
+    },
+    {
+      "id": 15,
+      "tipo": "after_image_deposit",
+      "mensaje": "¡Perfecto! Hemos recibido tu comprobante 📄\n\nEn breves un asistente realizará la carga manualmente. Gracias por tu paciencia.",
+      "categoria": "manual"
+    },
+    {
+      "id": 16,
+      "tipo": "manual_voucher_paid",
+      "mensaje": "✅ ¡Listo! Tu saldo fue acreditado correctamente.\n\n💰 Monto: ${{amount}} ARS\n🎰 ¡A jugar!",
+      "categoria": "manual"
+    },
+    {
+      "id": 17,
+      "tipo": "manual_voucher_rejected",
+      "mensaje": "❌ No pudimos acreditar tu saldo. Un administrador revisó tu comprobante y fue rechazado.\n\nSi creés que es un error, enviá un comprobante nuevo.",
+      "categoria": "manual"
+    },
+    {
+      "id": 18,
+      "tipo": "request_name",
+      "mensaje": "Por favor, ingresá tu nombre y apellido para verificar el pago.",
+      "categoria": "carga"
+    },
+    {
+      "id": 19,
+      "tipo": "name_received",
+      "mensaje": "Nombre recibido ✅ Estamos verificando el comprobante con el banco.",
+      "categoria": "carga"
+    },
+    {
+      "id": 20,
+      "tipo": "name_correction",
+      "mensaje": "¿Quisiste decir \"{{corrected_name}}\"? Por favor, confirmá si el nombre está correcto o ingresá el nombre correcto.",
+      "categoria": "carga"
+    },
+    {
+      "id": 21,
+      "tipo": "request_save_name",
+      "mensaje": "¿Deseas que guardemos tu nombre \"{{full_name}}\" para verificar futuros pagos?",
+      "categoria": "carga"
+    },
+    {
+      "id": 22,
+      "tipo": "request_cuit",
+      "mensaje": "Por favor, ingresá tu CUIT/CUIL para verificar el pago.",
+      "categoria": "carga"
+    },
+    {
+      "id": 23,
+      "tipo": "cuit_received",
+      "mensaje": "CUIT recibido ✅ Estamos verificando el comprobante con el banco.",
+      "categoria": "carga"
+    },
+    {
+      "id": 24,
+      "tipo": "retiro",
+      "mensaje": "Para procesar tu retiro necesitamos:\n\n• Tu usuario\n• CBU destino\n• Nombre del titular\n• Monto a retirar\n\nEl monto mínimo es {{min_amount}} ARS.",
+      "categoria": "retiro"
+    },
+    {
+      "id": 25,
+      "tipo": "retiro_monto_disponible",
+      "mensaje": "💰 Tu monto disponible para retirar es de ${{profit}} ARS.",
+      "categoria": "retiro"
+    },
+    {
+      "id": 26,
+      "tipo": "retiro_confirm_details",
+      "mensaje": "Tus fichas serán retiradas. Por favor, enviá tu CBU y nombre del titular.",
+      "categoria": "retiro"
+    },
+    {
+      "id": 27,
+      "tipo": "retiro_completado",
+      "mensaje": "Retiro completado ✅\n\n💸 Monto: ${{amount}} ARS\n\nEl pago fue procesado exitosamente.",
+      "categoria": "retiro"
+    },
+    {
+      "id": 28,
+      "tipo": "retiro_fallido",
+      "mensaje": "El retiro ha sido marcado como fallido ❌\n\nContactá a soporte para más información.",
+      "categoria": "retiro"
+    },
+    {
+      "id": 29,
+      "tipo": "soporte",
+      "mensaje": "¿En qué podemos ayudarte? 🤝\n\nUn agente de soporte te atenderá pronto.",
+      "categoria": "soporte"
+    },
+    {
+      "id": 30,
+      "tipo": "soporte_completado",
+      "mensaje": "Soporte completado ✅ ¡Gracias por contactarnos!",
+      "categoria": "soporte"
+    },
+    {
+      "id": 31,
+      "tipo": "soporte_fallido",
+      "mensaje": "El ticket de soporte ha sido cerrado.",
+      "categoria": "soporte"
+    },
+    {
+      "id": 32,
+      "tipo": "admin_transfer",
+      "mensaje": "Serás transferido con un administrador. Por favor aguardá un momento.",
+      "categoria": "soporte"
+    },
+    {
+      "id": 33,
+      "tipo": "cuponera",
+      "mensaje": "💎 CUPONERA GOLD\n\nConsultá los cupones disponibles y canjeá tus premios.",
+      "categoria": "cuponera"
+    },
+    {
+      "id": 34,
+      "tipo": "cuponera_completada",
+      "mensaje": "¡RECIBIDO! ✅ Tu cupón fue aplicado exitosamente.",
+      "categoria": "cuponera"
+    },
+    {
+      "id": 35,
+      "tipo": "cuponera_fallida",
+      "mensaje": "No hemos podido completar tu solicitud de cupón. Intentá nuevamente.",
+      "categoria": "cuponera"
+    }
+  ],
+  "apiConfig": {
+    "casino": {
+      "token": "",
+      "url": "",
+      "user": "",
+      "password": "",
+      "cajaId": ""
+    },
+    "aws": {
+      "accessKey": "",
+      "secretKey": "",
+      "region": ""
+    },
+    "openrouter": {
+      "apiKey": "",
+      "model": ""
+    },
+    "openai": {
+      "apiKey": "",
+      "model": "gpt-4o-mini"
+    }
+  },
+  "accounts": [
+    {
+      "alias": "MP Principal",
+      "cbu": "0000003100000000000001",
+      "titular": "Casino 463 SRL",
+      "banco": "Mercado Pago",
+      "estatus": "active",
+      "id": 1,
+      "createdAt": "2026-03-04T10:57:57.125Z"
+    }
+  ],
+  "settings": {
+    "siteName": "Casino 463",
+    "siteUrl": "https://463.life",
+    "chatMode": "manual",
+    "telepagosAI": false,
+    "minRetiro": 3000,
+    "minDeposito": 1500,
+    "bonoBienvenida": "200%",
+    "timezone": "America/Argentina/Buenos_Aires",
+    "buttonOptions": {
+      "carga": {
+        "type": "option",
+        "link": ""
+      },
+      "retiro": {
+        "type": "option",
+        "link": ""
+      },
+      "soporte": {
+        "type": "option",
+        "link": ""
+      },
+      "cuponera": {
+        "type": "option",
+        "link": ""
+      }
+    },
+    "modalConfig": {
+      "active": false,
+      "hora": "20:00",
+      "duracion": 1,
+      "mensaje": "",
+      "botonTexto": "Ver más"
+    },
+    "limits": {
+      "minRetiro": 3000,
+      "minDeposito": "1000",
+      "bonoBienvenida": "200%"
+    },
+    "general": {
+      "siteName": "Gana463",
+      "siteUrl": "https://463.life",
+      "timezone": "America/Argentina/Buenos_Aires"
+    }
+  },
+  "chats": [],
+  "chatMessages": {},
+  "labels": [
+    {
+      "id": 1,
+      "nombre": "VIP",
+      "color": "#D4A843"
+    },
+    {
+      "id": 2,
+      "nombre": "Nuevo",
+      "color": "#22c55e"
+    },
+    {
+      "id": 3,
+      "nombre": "Soporte",
+      "color": "#3b82f6"
+    },
+    {
+      "id": 4,
+      "nombre": "Retiro",
+      "color": "#f59e0b"
+    },
+    {
+      "id": 5,
+      "nombre": "Problema",
+      "color": "#ef4444"
+    },
+    {
+      "nombre": "EVENTO",
+      "color": "#FFD700",
+      "id": 6
+    }
+  ],
+  "pushSubscriptions": [],
+  "sentNotifications": [
+    {
+      "title": "asd",
+      "body": "asd",
+      "type": "general",
+      "target": "all",
+      "targetValue": "",
+      "sentBy": "admin",
+      "deliveredCount": 1,
+      "failedCount": 0,
+      "id": "e5e996dc-55d4-48ce-a1f4-e420c1a89091",
+      "sentAt": "2026-03-05T12:14:02.451Z"
+    },
+    {
+      "title": "BONO 200% ACTIVADO",
+      "body": "Tenes un bono 200% esperandote",
+      "type": "bono",
+      "target": "all",
+      "targetValue": "",
+      "sentBy": "admin",
+      "deliveredCount": 1,
+      "failedCount": 0,
+      "id": "9b2644ec-6c5f-4920-a7ee-616a965e2290",
+      "sentAt": "2026-03-05T12:13:38.802Z"
+    }
+  ],
+  "popupMessages": [
+    {
+      "title": "FALTA 30 MINUTOS PARA EL SORTEO NO QUEDES DE FUERA!",
+      "body": "$100.000 FICHAS DE PREMIO!",
+      "imageUrl": "",
+      "buttonText": "CARGAR FICHAS",
+      "buttonUrl": "",
+      "target": "all",
+      "targetValue": "",
+      "sentBy": "admin",
+      "id": "d1ba7317-452f-4153-8d41-693eaafcb61a",
+      "sentAt": "2026-03-09T13:08:09.723Z"
+    },
+    {
+      "title": "FALTA 30 MINUTOS PARA EL SORTEO NO QUEDES DE FUERA!",
+      "body": "$100.000 FICHAS DE PREMIO!",
+      "imageUrl": "",
+      "buttonText": "CARGAR FICHAS",
+      "buttonUrl": "",
+      "target": "all",
+      "targetValue": "",
+      "sentBy": "admin",
+      "id": "87db2050-420e-488e-a2bb-3ba4be2c35c2",
+      "sentAt": "2026-03-09T13:07:33.547Z"
+    },
+    {
+      "title": "Test Popup",
+      "body": "Test body",
+      "imageUrl": "",
+      "buttonText": "CARGAR FICHAS",
+      "buttonUrl": "",
+      "target": "all",
+      "targetValue": "",
+      "sentBy": "admin",
+      "id": "8b9fdf98-151c-40e6-8d78-91d30d67b4b5",
+      "sentAt": "2026-03-05T12:31:02.572Z"
+    },
+    {
+      "title": "BONO 200% ACTIVADO",
+      "body": "Que estas esperando para tener mas chances de ganar ?",
+      "imageUrl": "",
+      "buttonText": "CARGAR",
+      "buttonUrl": "",
+      "target": "all",
+      "targetValue": "",
+      "sentBy": "admin",
+      "id": "b6a56eac-7004-424d-b7a5-73423e4f0ef6",
+      "sentAt": "2026-03-05T12:20:05.102Z"
+    },
+    {
+      "title": "TITULO",
+      "body": "APROVECHA BONO 200%",
+      "imageUrl": "",
+      "buttonText": "CARGAR AHORA",
+      "buttonUrl": "",
+      "target": "all",
+      "targetValue": "",
+      "sentBy": "admin",
+      "id": "3a2a12da-3aa7-4ecb-93b3-ed0518baf175",
+      "sentAt": "2026-03-05T12:18:19.020Z"
+    }
+  ],
+  "popupTemplates": [],
+  "events": [],
+  "eventEntries": [
+    {
+      "eventId": "5a28efd2-a294-404e-9d5b-47b5404fbf7d",
+      "clientId": 1,
+      "clientName": "TestLogin",
+      "chatId": "e963f3d0-dc42-4f72-b5ec-78af4e0af8f4",
+      "id": "4c6156e7-9e94-4afc-b30c-abd6b52322ae",
+      "depositPaymentId": null,
+      "depositAmount": 0,
+      "joinedAt": "2026-03-09T12:58:53.091Z",
+      "qualified": false,
+      "qualifiedAt": null
+    },
+    {
+      "eventId": "48113674-29a4-4149-bf8c-ec378a6d4440",
+      "clientId": 1,
+      "clientName": "TestLogin",
+      "chatId": "e963f3d0-dc42-4f72-b5ec-78af4e0af8f4",
+      "id": "90396962-a5f1-4b50-b847-170aac3d2fbf",
+      "depositPaymentId": null,
+      "depositAmount": 0,
+      "joinedAt": "2026-03-09T13:05:53.669Z",
+      "qualified": false,
+      "qualifiedAt": null
+    }
+  ],
+  "activityLogs": [],
+  "dailyAggregates": [],
+  "paltaTransactions": [
+    {
+      "paltaId": "69aec4ee9fc5aa28921f650a",
+      "counterpartyName": "Lorena de Los Angeles Mendez",
+      "counterpartyCuit": "27358166887",
+      "counterpartyCvu": "0000003100170095364830",
+      "amount": 2000,
+      "transactionCode": "1773061358417",
+      "createdAt": "2026-03-09T13:02:38.417Z",
+      "id": "beed0a66-d5f2-4044-95a7-2101e8e9fea1",
+      "capturedAt": "2026-03-09T13:03:32.708Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69aec41d9fc5aa28921f647f",
+      "counterpartyName": "Maira Alejandra Gonzalez",
+      "counterpartyCuit": "23358495834",
+      "counterpartyCvu": "0000003100106336706565",
+      "amount": 1000,
+      "transactionCode": "1773061149869",
+      "createdAt": "2026-03-09T12:59:09.869Z",
+      "id": "9c63b927-49e0-48bc-a0b0-1c77404e877c",
+      "capturedAt": "2026-03-09T13:03:32.709Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69aec3cc9fc5aa28921f6446",
+      "counterpartyName": "SALVATIERRA GABRIELA ANDREA ",
+      "counterpartyCuit": "27390055558",
+      "counterpartyCvu": "0110453430045340002829",
+      "amount": 1060,
+      "transactionCode": "1773061068910",
+      "createdAt": "2026-03-09T12:57:48.910Z",
+      "id": "b2ff271d-7cdb-448b-a354-3b72722e9f95",
+      "capturedAt": "2026-03-09T13:03:32.710Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69aec3c19fc5aa28921f6442",
+      "counterpartyName": "MILTON ALEXIS TEVEZ",
+      "counterpartyCuit": "20396161975",
+      "counterpartyCvu": "4530000800016082373581",
+      "amount": 2000,
+      "transactionCode": "1773061057379",
+      "createdAt": "2026-03-09T12:57:37.379Z",
+      "id": "0d955e26-4c0b-432b-aafd-4010c72d49cb",
+      "capturedAt": "2026-03-09T13:03:32.711Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69aec3a39fc5aa28921f642e",
+      "counterpartyName": "Lorena de Los Angeles Mendez",
+      "counterpartyCuit": "27358166887",
+      "counterpartyCvu": "0000003100070095364837",
+      "amount": 18770,
+      "transactionCode": "1773061026359",
+      "createdAt": "2026-03-09T12:57:07.909Z",
+      "id": "4cfa8547-44a4-482e-a42b-53290c37bf8a",
+      "capturedAt": "2026-03-09T13:03:32.711Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69aec1fa9fc5aa28921f6341",
+      "counterpartyName": "Lidia Antonia Gallegos",
+      "counterpartyCuit": "27237190462",
+      "counterpartyCvu": "0000003100145842776860",
+      "amount": 1000,
+      "transactionCode": "1773060602643",
+      "createdAt": "2026-03-09T12:50:02.643Z",
+      "id": "516b5234-fe67-4350-a21f-77848387c578",
+      "capturedAt": "2026-03-09T13:03:32.713Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69aec1939fc5aa28921f6309",
+      "counterpartyName": "MARTINEZ ANA BEATRIZ ",
+      "counterpartyCuit": "27165924695",
+      "counterpartyCvu": "1910100455110003955767",
+      "amount": 1000,
+      "transactionCode": "1773060499791",
+      "createdAt": "2026-03-09T12:48:19.792Z",
+      "id": "193e5a47-f765-4737-ad07-dbf8d5a79e1e",
+      "capturedAt": "2026-03-09T13:03:32.714Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69aebfad9fc5aa28921f61b4",
+      "counterpartyName": "Maira Alejandra Gonzalez",
+      "counterpartyCuit": "23358495834",
+      "counterpartyCvu": "0000003100106336706565",
+      "amount": 2000,
+      "transactionCode": "1773060013110",
+      "createdAt": "2026-03-09T12:40:13.110Z",
+      "id": "60e5e2b5-f82e-4a00-9b7d-b9b1eaf8c3c6",
+      "capturedAt": "2026-03-09T13:03:32.716Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69aebf6a9fc5aa28921f6185",
+      "counterpartyName": "Liliana Giselle Gomez",
+      "counterpartyCuit": "27252509483",
+      "counterpartyCvu": "0000003100157514753493",
+      "amount": 6000,
+      "transactionCode": "1773059946212",
+      "createdAt": "2026-03-09T12:39:06.212Z",
+      "id": "ba83dfe1-4ae4-4f97-a836-c425790f5972",
+      "capturedAt": "2026-03-09T13:03:32.717Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69aebf179fc5aa28921f6144",
+      "counterpartyName": "Patricia Beatriz Sanjines",
+      "counterpartyCuit": "27268974917",
+      "counterpartyCvu": "0000003100061786954143",
+      "amount": 10000,
+      "transactionCode": "1773059862005",
+      "createdAt": "2026-03-09T12:37:43.447Z",
+      "id": "fe71ac4d-57db-41bf-94cf-a05f954ca5c6",
+      "capturedAt": "2026-03-09T13:03:32.719Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69aebeed9fc5aa28921f6133",
+      "counterpartyName": "Alejandra Vera",
+      "counterpartyCuit": "27364657043",
+      "counterpartyCvu": "0000013000032212364355",
+      "amount": 1000,
+      "transactionCode": "1773059821601",
+      "createdAt": "2026-03-09T12:37:01.602Z",
+      "id": "92d1df7e-4ddd-4f14-af24-7746e8c8dda5",
+      "capturedAt": "2026-03-09T13:03:32.721Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69aebd9d9fc5aa28921f6090",
+      "counterpartyName": "Leopoldo",
+      "counterpartyCuit": "20400838322",
+      "counterpartyCvu": "0000001700000002460514",
+      "amount": 3000,
+      "transactionCode": "1773059485007",
+      "createdAt": "2026-03-09T12:31:25.007Z",
+      "id": "7571ae74-e20e-40d1-b640-93658ae3c501",
+      "capturedAt": "2026-03-09T13:03:32.722Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69aebbe59fc5aa28921f5fb1",
+      "counterpartyName": "Norberto Dardo Riveros",
+      "counterpartyCuit": "20366295330",
+      "counterpartyCvu": "0000003100179195422732",
+      "amount": 1000,
+      "transactionCode": "1773059045776",
+      "createdAt": "2026-03-09T12:24:05.776Z",
+      "id": "b95c7faf-d882-4530-bf70-3c6929aa5ac1",
+      "capturedAt": "2026-03-09T13:03:32.724Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69aeb1519fc5aa28921f5a1e",
+      "counterpartyName": "MARIA VIRGINIA GODOY",
+      "counterpartyCuit": "27446459916",
+      "counterpartyCvu": "4530000800016654658405",
+      "amount": 175000,
+      "transactionCode": "1773056336602",
+      "createdAt": "2026-03-09T11:38:57.990Z",
+      "id": "6bdd3645-bf4b-4690-9bd5-4c6f1cc432e3",
+      "capturedAt": "2026-03-09T11:53:50.027Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69aeb0999fc5aa28921f59ad",
+      "counterpartyName": "Marcos Ezequiel Martinez",
+      "counterpartyCuit": "20313518273",
+      "counterpartyCvu": "0000003100197478830085",
+      "amount": 5000,
+      "transactionCode": "1773056153966",
+      "createdAt": "2026-03-09T11:35:53.967Z",
+      "id": "a4ded877-8849-4a84-aee6-c300d4dea388",
+      "capturedAt": "2026-03-09T11:53:50.028Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69aeb0749fc5aa28921f5994",
+      "counterpartyName": "Martina Leonela Barrientos",
+      "counterpartyCuit": "23481936144",
+      "counterpartyCvu": "0000003100177994636321",
+      "amount": 1000,
+      "transactionCode": "1773056116053",
+      "createdAt": "2026-03-09T11:35:16.054Z",
+      "id": "a3f75dbc-6fcc-4ce1-b4ed-951474d7a6de",
+      "capturedAt": "2026-03-09T11:53:50.029Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69aeb0549fc5aa28921f5974",
+      "counterpartyName": "Elias Nahuel Acuna",
+      "counterpartyCuit": "20407537050",
+      "counterpartyCvu": "0000003100119477728589",
+      "amount": 2600,
+      "transactionCode": "1773056084558",
+      "createdAt": "2026-03-09T11:34:44.559Z",
+      "id": "d03bff35-fc4a-4bc4-9b01-e1c5e9570cbf",
+      "capturedAt": "2026-03-09T11:53:50.029Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69aeb00d9fc5aa28921f5964",
+      "counterpartyName": "Gustavo Juan Pablo Godoy",
+      "counterpartyCuit": "20403453715",
+      "counterpartyCvu": "0000003100141011204264",
+      "amount": 1000,
+      "transactionCode": "1773056013605",
+      "createdAt": "2026-03-09T11:33:33.605Z",
+      "id": "14b08bce-4d1c-4969-9479-cb3ff9090a6e",
+      "capturedAt": "2026-03-09T11:53:50.030Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69aeb0059fc5aa28921f595c",
+      "counterpartyName": "VIOLETA NADIN DI STEFANO GARCIA",
+      "counterpartyCuit": "27431070060",
+      "counterpartyCvu": "4530000800013930036085",
+      "amount": 91661,
+      "transactionCode": "1773056003513",
+      "createdAt": "2026-03-09T11:33:25.063Z",
+      "id": "dacd3081-35dd-4a23-9a62-40b833af6ba6",
+      "capturedAt": "2026-03-09T11:53:50.031Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69aeaf999fc5aa28921f5906",
+      "counterpartyName": "ZIMMER OFELIA RAFAELA ",
+      "counterpartyCuit": "27348944709",
+      "counterpartyCvu": "0110248430024845422497",
+      "amount": 4000,
+      "transactionCode": "1773055897484",
+      "createdAt": "2026-03-09T11:31:37.484Z",
+      "id": "f920a369-7326-4db6-add3-55d803fea29d",
+      "capturedAt": "2026-03-09T11:53:50.032Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69aeaef29fc5aa28921f58c3",
+      "counterpartyName": "Santiago Godoy",
+      "counterpartyCuit": "20428041381",
+      "counterpartyCvu": "0000013000032363539028",
+      "amount": 110000,
+      "transactionCode": "1773055729076",
+      "createdAt": "2026-03-09T11:28:50.618Z",
+      "id": "c222656c-262d-4ee0-a309-48eb6b1e40a1",
+      "capturedAt": "2026-03-09T11:53:50.033Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69aeaeba9fc5aa28921f58a6",
+      "counterpartyName": "Micaela Lourdes Lescano",
+      "counterpartyCuit": "27369480079",
+      "counterpartyCvu": "0000003100017529272229",
+      "amount": 103000,
+      "transactionCode": "1773055670774",
+      "createdAt": "2026-03-09T11:27:54.506Z",
+      "id": "891dc1ad-9f9b-457e-9fb2-2169adfd270e",
+      "capturedAt": "2026-03-09T11:53:50.034Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69aeaea99fc5aa28921f58a2",
+      "counterpartyName": "Saul Garcia",
+      "counterpartyCuit": "20309353766",
+      "counterpartyCvu": "0000013000032221211563",
+      "amount": 1000,
+      "transactionCode": "1773055657457",
+      "createdAt": "2026-03-09T11:27:37.457Z",
+      "id": "0ce033ff-66ba-498b-a542-47637b70abd4",
+      "capturedAt": "2026-03-09T11:53:50.035Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69aead8a9fc5aa28921f583a",
+      "counterpartyName": "Gianella Agustina Bustos",
+      "counterpartyCuit": "27524729259",
+      "counterpartyCvu": "0000003100169236643840",
+      "amount": 2000,
+      "transactionCode": "1773055370504",
+      "createdAt": "2026-03-09T11:22:50.505Z",
+      "id": "2dda4e05-3876-4ad0-ab4f-d8e8c9af403e",
+      "capturedAt": "2026-03-09T11:53:50.036Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae34089fc5aa28921efc23",
+      "counterpartyName": "PAOLA ANDREA,BONILLA",
+      "counterpartyCuit": "27248053092",
+      "counterpartyCvu": "0140073103501871133316",
+      "amount": 2000,
+      "transactionCode": "1773024264358",
+      "createdAt": "2026-03-09T02:44:24.359Z",
+      "id": "fd6dd199-5d15-424d-837f-358efeb3fc50",
+      "capturedAt": "2026-03-09T02:44:31.886Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae33df9fc5aa28921efbd5",
+      "counterpartyName": "Ludmila del Valle Guajardo Irrazabal",
+      "counterpartyCuit": "27452633235",
+      "counterpartyCvu": "0000003100195458088965",
+      "amount": 1000,
+      "transactionCode": "1773024223872",
+      "createdAt": "2026-03-09T02:43:43.872Z",
+      "id": "d7704c6b-a7c8-4d18-b463-86a6ed26c61a",
+      "capturedAt": "2026-03-09T02:44:31.887Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae330a9fc5aa28921efa33",
+      "counterpartyName": "ALVEZ LILILIANA ISAB ",
+      "counterpartyCuit": "27305241879",
+      "counterpartyCvu": "0110407730040755115601",
+      "amount": 1000,
+      "transactionCode": "1773024010057",
+      "createdAt": "2026-03-09T02:40:10.058Z",
+      "id": "3002ba08-cd54-40bc-ac8a-8706976b150f",
+      "capturedAt": "2026-03-09T02:44:31.888Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae32a79fc5aa28921ef979",
+      "counterpartyName": "Luis Armando Galarza",
+      "counterpartyCuit": "20354585457",
+      "counterpartyCvu": "0000003100167272996717",
+      "amount": 1000,
+      "transactionCode": "1773023911087",
+      "createdAt": "2026-03-09T02:38:31.087Z",
+      "id": "7347bdd9-138b-4aaa-aea9-d6c58c29e56a",
+      "capturedAt": "2026-03-09T02:44:31.889Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae32459fc5aa28921ef8d5",
+      "counterpartyName": "Jose Carlos Salinas",
+      "counterpartyCuit": "20330405784",
+      "counterpartyCvu": "0000003100088922082937",
+      "amount": 100000,
+      "transactionCode": "1773023812348",
+      "createdAt": "2026-03-09T02:36:53.719Z",
+      "id": "68385d63-4ecb-4964-bf0a-c50f848f6544",
+      "capturedAt": "2026-03-09T02:44:31.890Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae31fe9fc5aa28921ef856",
+      "counterpartyName": "Angel Leandro Fonseca",
+      "counterpartyCuit": "20389683400",
+      "counterpartyCvu": "0000003100081178490888",
+      "amount": 3000,
+      "transactionCode": "1773023741190",
+      "createdAt": "2026-03-09T02:35:42.646Z",
+      "id": "2f81b7b8-3010-425d-9dbf-0fdc4ea178a3",
+      "capturedAt": "2026-03-09T02:36:06.902Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae31c59fc5aa28921ef7e2",
+      "counterpartyName": "Walter Fernando Nieva",
+      "counterpartyCuit": "20453721494",
+      "counterpartyCvu": "0000003100147834646609",
+      "amount": 3000,
+      "transactionCode": "1773023685862",
+      "createdAt": "2026-03-09T02:34:45.863Z",
+      "id": "8a57c157-8b65-4632-a709-639104f9dcc7",
+      "capturedAt": "2026-03-09T02:36:06.903Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae31a09fc5aa28921ef78e",
+      "counterpartyName": "Milagros Barez",
+      "counterpartyCuit": "27318556275",
+      "counterpartyCvu": "0000003100120295577244",
+      "amount": 90000,
+      "transactionCode": "1773023648761",
+      "createdAt": "2026-03-09T02:34:08.762Z",
+      "id": "c9e5dae7-7df0-431e-ad18-e4980f959b55",
+      "capturedAt": "2026-03-09T02:36:06.904Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae311b9fc5aa28921ef677",
+      "counterpartyName": "Mariana Nelida Orozco",
+      "counterpartyCuit": "27309280380",
+      "counterpartyCvu": "0000003100115030007793",
+      "amount": 2000,
+      "transactionCode": "1773023515076",
+      "createdAt": "2026-03-09T02:31:55.077Z",
+      "id": "0773568f-4a5e-40b9-9b6c-01439df88c62",
+      "capturedAt": "2026-03-09T02:36:06.905Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae30e19fc5aa28921ef61a",
+      "counterpartyName": "Maria Vizgarra",
+      "counterpartyCuit": "27260272425",
+      "counterpartyCvu": "0000013000032311010175",
+      "amount": 1560,
+      "transactionCode": "1773023457611",
+      "createdAt": "2026-03-09T02:30:57.611Z",
+      "id": "f4ef8f27-db02-4847-abbb-68dea41028a3",
+      "capturedAt": "2026-03-09T02:36:06.906Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae30d29fc5aa28921ef5f7",
+      "counterpartyName": "Gabriela Beatriz Aguero",
+      "counterpartyCuit": "27234081905",
+      "counterpartyCvu": "0000003100190980974139",
+      "amount": 1500,
+      "transactionCode": "1773023442155",
+      "createdAt": "2026-03-09T02:30:42.155Z",
+      "id": "4ccb1264-022d-4b5b-ac77-9cd508de2cde",
+      "capturedAt": "2026-03-09T02:36:06.907Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae30af9fc5aa28921ef5c6",
+      "counterpartyName": "Lourdes Morena Bustos",
+      "counterpartyCuit": "27487543956",
+      "counterpartyCvu": "0000003100183419648875",
+      "amount": 1000,
+      "transactionCode": "1773023407565",
+      "createdAt": "2026-03-09T02:30:07.565Z",
+      "id": "4b1c4fdc-b919-42c1-a0d4-ed236ba7b777",
+      "capturedAt": "2026-03-09T02:36:06.908Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae30759fc5aa28921ef534",
+      "counterpartyName": "Cristian Adrian Zurita",
+      "counterpartyCuit": "20329224369",
+      "counterpartyCvu": "0000007900203292243698",
+      "amount": 2000,
+      "transactionCode": "1773023349549",
+      "createdAt": "2026-03-09T02:29:09.549Z",
+      "id": "89951072-4adb-47e1-8355-93ff4804508a",
+      "capturedAt": "2026-03-09T02:36:06.909Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae2ef59fc5aa28921ef267",
+      "counterpartyName": "Axel Alejandro Carmona Gimenez",
+      "counterpartyCuit": "20472691385",
+      "counterpartyCvu": "0000003100191861391368",
+      "amount": 1000,
+      "transactionCode": "1773022965100",
+      "createdAt": "2026-03-09T02:22:45.100Z",
+      "id": "b50325c6-db98-49fd-ac75-4ca054fb4efd",
+      "capturedAt": "2026-03-09T02:36:06.909Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae2eed9fc5aa28921ef253",
+      "counterpartyName": "Marcos Ezequiel Martinez",
+      "counterpartyCuit": "20313518273",
+      "counterpartyCvu": "0000003100197478830085",
+      "amount": 5000,
+      "transactionCode": "1773022957305",
+      "createdAt": "2026-03-09T02:22:37.306Z",
+      "id": "9f253840-723a-4938-8d80-b54b86c48def",
+      "capturedAt": "2026-03-09T02:36:06.910Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae2ee59fc5aa28921ef24f",
+      "counterpartyName": "Melani Jazmin Rosales",
+      "counterpartyCuit": "27448271523",
+      "counterpartyCvu": "0000003100107077376668",
+      "amount": 3000,
+      "transactionCode": "1773022949185",
+      "createdAt": "2026-03-09T02:22:29.186Z",
+      "id": "0abb8eef-4791-4ff4-a638-426213f511d7",
+      "capturedAt": "2026-03-09T02:36:06.911Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae2e869fc5aa28921ef15c",
+      "counterpartyName": "FONSECA CLAUDIA ALEJANDRA",
+      "counterpartyCuit": "27264832786",
+      "counterpartyCvu": "0110213230021332004633",
+      "amount": 2000,
+      "transactionCode": "1773022854822",
+      "createdAt": "2026-03-09T02:20:54.822Z",
+      "id": "24bbdf4e-a123-4728-bfac-6712e445bd37",
+      "capturedAt": "2026-03-09T02:36:06.911Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae2d899fc5aa28921eef9d",
+      "counterpartyName": "MATIAS HERNAN MORALES",
+      "counterpartyCuit": "20466013049",
+      "counterpartyCvu": "4530000800018386239727",
+      "amount": 1000,
+      "transactionCode": "1773022601928",
+      "createdAt": "2026-03-09T02:16:41.928Z",
+      "id": "9690b256-a696-42fb-8568-42cc1fe81a04",
+      "capturedAt": "2026-03-09T02:20:01.870Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae2d0e9fc5aa28921eeed5",
+      "counterpartyName": "Roxana Elizabeth Casafuz",
+      "counterpartyCuit": "27369939071",
+      "counterpartyCvu": "0000003100103962265608",
+      "amount": 2000,
+      "transactionCode": "1773022478429",
+      "createdAt": "2026-03-09T02:14:38.430Z",
+      "id": "bfdefb63-b6c3-4b54-a907-98384404435d",
+      "capturedAt": "2026-03-09T02:20:01.871Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae2c6d9fc5aa28921eedd1",
+      "counterpartyName": "Lidia Antonia Gallegos",
+      "counterpartyCuit": "27237190462",
+      "counterpartyCvu": "0000003100145842776860",
+      "amount": 2000,
+      "transactionCode": "1773022317276",
+      "createdAt": "2026-03-09T02:11:57.276Z",
+      "id": "3444a0b7-e08e-4526-9379-fa601cd6580b",
+      "capturedAt": "2026-03-09T02:20:01.871Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae2be19fc5aa28921eecec",
+      "counterpartyName": "Braian Alejandro Ariel Sosa",
+      "counterpartyCuit": "23399570409",
+      "counterpartyCvu": "0000003100197124675314",
+      "amount": 3300,
+      "transactionCode": "1773022177549",
+      "createdAt": "2026-03-09T02:09:37.550Z",
+      "id": "0406eae5-0c4f-4ea7-98db-146f5f2ce079",
+      "capturedAt": "2026-03-09T02:20:01.872Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae2bce9fc5aa28921eecc0",
+      "counterpartyName": "Lorena Guadalupe Olivera",
+      "counterpartyCuit": "23457557094",
+      "counterpartyCvu": "0000003100183353651209",
+      "amount": 5000,
+      "transactionCode": "1773022158339",
+      "createdAt": "2026-03-09T02:09:18.339Z",
+      "id": "c0e298a3-c9e0-485b-8fdb-9ed0925a88db",
+      "capturedAt": "2026-03-09T02:20:01.872Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae2bc59fc5aa28921eecad",
+      "counterpartyName": "JESICA VANINA PETRONCOLI",
+      "counterpartyCuit": "27342612828",
+      "counterpartyCvu": "4530000800014723281071",
+      "amount": 1500,
+      "transactionCode": "1773022149323",
+      "createdAt": "2026-03-09T02:09:09.323Z",
+      "id": "7ac2703d-2e06-4205-a4bf-6860da8822aa",
+      "capturedAt": "2026-03-09T02:20:01.873Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae2b479fc5aa28921eebe2",
+      "counterpartyName": "Florencia del Carmen Coronel",
+      "counterpartyCuit": "27508146219",
+      "counterpartyCvu": "0000003100162794496006",
+      "amount": 1000,
+      "transactionCode": "1773022023171",
+      "createdAt": "2026-03-09T02:07:03.172Z",
+      "id": "0e7379ed-9095-41f0-94ed-8fa05ed97436",
+      "capturedAt": "2026-03-09T02:20:01.873Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae2b159fc5aa28921eeb94",
+      "counterpartyName": "Julieta del Rosario Guzman",
+      "counterpartyCuit": "27397904860",
+      "counterpartyCvu": "0000003100114496625578",
+      "amount": 2000,
+      "transactionCode": "1773021973561",
+      "createdAt": "2026-03-09T02:06:13.561Z",
+      "id": "aae02c85-3d10-43be-a795-6a728e99fde7",
+      "capturedAt": "2026-03-09T02:20:01.875Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae2b109fc5aa28921eeb86",
+      "counterpartyName": "Hector Orlando Norsovich",
+      "counterpartyCuit": "23429906989",
+      "counterpartyCvu": "0000003100188637803226",
+      "amount": 1000,
+      "transactionCode": "1773021968079",
+      "createdAt": "2026-03-09T02:06:08.080Z",
+      "id": "57ffa639-fa1c-4faa-91ba-66ff7e74d15e",
+      "capturedAt": "2026-03-09T02:20:01.875Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae2ae09fc5aa28921eeb19",
+      "counterpartyName": "Matias Ezequiel da Silva",
+      "counterpartyCuit": "20487405079",
+      "counterpartyCvu": "0000003100014272972806",
+      "amount": 18000,
+      "transactionCode": "1773021918859",
+      "createdAt": "2026-03-09T02:05:20.343Z",
+      "id": "03360027-f568-4e4b-b110-03579d58aad6",
+      "capturedAt": "2026-03-09T02:20:01.876Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae2ada9fc5aa28921eeb01",
+      "counterpartyName": "Sonia Mabel Quintana",
+      "counterpartyCuit": "27294841240",
+      "counterpartyCvu": "0000003100157853840236",
+      "amount": 1000,
+      "transactionCode": "1773021914586",
+      "createdAt": "2026-03-09T02:05:14.587Z",
+      "id": "b2fbdac6-1fb8-4740-bdcd-4571afe60aea",
+      "capturedAt": "2026-03-09T02:20:01.876Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae2a2b9fc5aa28921ee9b3",
+      "counterpartyName": "PABLO EMMANUEL ARIAS",
+      "counterpartyCuit": "20380403669",
+      "counterpartyCvu": "4530000800012050684826",
+      "amount": 10000,
+      "transactionCode": "1773021739099",
+      "createdAt": "2026-03-09T02:02:19.100Z",
+      "id": "187b1d5d-733b-48e9-bd95-304d85e9b27b",
+      "capturedAt": "2026-03-09T02:20:01.877Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae29f19fc5aa28921ee95b",
+      "counterpartyName": "Carlos Hugo Bonasola",
+      "counterpartyCuit": "20392584383",
+      "counterpartyCvu": "0000003100128892825614",
+      "amount": 3000,
+      "transactionCode": "1773021681648",
+      "createdAt": "2026-03-09T02:01:21.649Z",
+      "id": "dc69c246-2eed-445a-b8e2-f8fbae7780e7",
+      "capturedAt": "2026-03-09T02:20:01.877Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ae29df9fc5aa28921ee949",
+      "counterpartyName": "Melani Jazmin Rosales",
+      "counterpartyCuit": "27448271523",
+      "counterpartyCvu": "0000003100107077376668",
+      "amount": 2000,
+      "transactionCode": "1773021663518",
+      "createdAt": "2026-03-09T02:01:03.518Z",
+      "id": "acd94eca-ae03-4544-b4d6-fdeb6620c380",
+      "capturedAt": "2026-03-09T02:20:01.878Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ac740e9fc5aa28921c94a1",
+      "counterpartyName": "Claudia Lorena Villa",
+      "counterpartyCuit": "23306830864",
+      "counterpartyCvu": "0000003100098581004403",
+      "amount": 12000,
+      "transactionCode": "1772909581537",
+      "createdAt": "2026-03-07T18:53:02.948Z",
+      "id": "f7586c0a-3344-4928-814b-d184fac113d7",
+      "capturedAt": "2026-03-07T18:54:28.032Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ac739a9fc5aa28921c93d1",
+      "counterpartyName": "Demian Edgardo Garcia",
+      "counterpartyCuit": "20339105694",
+      "counterpartyCvu": "0000003100181307627522",
+      "amount": 2000,
+      "transactionCode": "1772909466108",
+      "createdAt": "2026-03-07T18:51:06.108Z",
+      "id": "3a65a663-2bca-4e64-b5a4-3ca8f3ae11a0",
+      "capturedAt": "2026-03-07T18:54:28.076Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ac73669fc5aa28921c936c",
+      "counterpartyName": "Dario Javier Romualdo",
+      "counterpartyCuit": "20348831500",
+      "counterpartyCvu": "0000003100033943532277",
+      "amount": 7000,
+      "transactionCode": "1772909412866",
+      "createdAt": "2026-03-07T18:50:14.210Z",
+      "id": "d109e846-b171-4a73-bc81-558f0a23cc22",
+      "capturedAt": "2026-03-07T18:54:28.125Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ac71c59fc5aa28921c90f4",
+      "counterpartyName": "Ricardo joaquin Ortiz",
+      "counterpartyCuit": "23358844529",
+      "counterpartyCvu": "3840200500000043396403",
+      "amount": 4000,
+      "transactionCode": "1772908996304",
+      "createdAt": "2026-03-07T18:43:17.648Z",
+      "id": "7cc03eeb-7e23-4cee-bc58-7828a0399647",
+      "capturedAt": "2026-03-07T18:54:28.175Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ac718d9fc5aa28921c9081",
+      "counterpartyName": "Andres Maximiliano Salinas",
+      "counterpartyCuit": "20315879397",
+      "counterpartyCvu": "0000003100120890603533",
+      "amount": 3000,
+      "transactionCode": "1772908941644",
+      "createdAt": "2026-03-07T18:42:21.644Z",
+      "id": "54141bc5-f430-4caf-82bc-e9b2166c230a",
+      "capturedAt": "2026-03-07T18:54:28.225Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ac714a9fc5aa28921c900c",
+      "counterpartyName": "Priscila Margarita Gomez",
+      "counterpartyCuit": "27504582472",
+      "counterpartyCvu": "0000003100106762057752",
+      "amount": 800,
+      "transactionCode": "1772908874181",
+      "createdAt": "2026-03-07T18:41:14.181Z",
+      "id": "2424de1e-4e1a-46cd-8be2-900bf3a69e4d",
+      "capturedAt": "2026-03-07T18:54:28.280Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ac70a99fc5aa28921c8ef7",
+      "counterpartyName": "Marcelo Jorge Cantero",
+      "counterpartyCuit": "20327207009",
+      "counterpartyCvu": "0000003100141027683554",
+      "amount": 2000,
+      "transactionCode": "1772908713979",
+      "createdAt": "2026-03-07T18:38:33.980Z",
+      "id": "f565a8a6-c8db-4b2c-82ce-4f78f7b98f52",
+      "capturedAt": "2026-03-07T18:54:28.332Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ac705b9fc5aa28921c8e5b",
+      "counterpartyName": "Angel Sebastian Calvano",
+      "counterpartyCuit": "20427434762",
+      "counterpartyCvu": "0000003100196592998408",
+      "amount": 1000,
+      "transactionCode": "1772908635841",
+      "createdAt": "2026-03-07T18:37:15.841Z",
+      "id": "246d8dc3-8fb9-4443-819a-df0280f107b0",
+      "capturedAt": "2026-03-07T18:54:28.382Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ac70219fc5aa28921c8dd8",
+      "counterpartyName": "Sandra Eve Bochile",
+      "counterpartyCuit": "27217172603",
+      "counterpartyCvu": "0000003100130558361613",
+      "amount": 2000,
+      "transactionCode": "1772908577381",
+      "createdAt": "2026-03-07T18:36:17.382Z",
+      "id": "30fa47c9-0452-494d-8373-d20d5e4a61b3",
+      "capturedAt": "2026-03-07T18:54:28.435Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ac6faa9fc5aa28921c8cde",
+      "counterpartyName": "Sandra Eve Bochile",
+      "counterpartyCuit": "27217172603",
+      "counterpartyCvu": "0000003100030558361610",
+      "amount": 6000,
+      "transactionCode": "1772908456688",
+      "createdAt": "2026-03-07T18:34:18.043Z",
+      "id": "5f4db389-3b99-4a31-8a31-9f4788fe6528",
+      "capturedAt": "2026-03-07T18:54:28.491Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    },
+    {
+      "paltaId": "69ac6f2c9fc5aa28921c8c28",
+      "counterpartyName": "Florencia Daniela Escobedo",
+      "counterpartyCuit": "27487391307",
+      "counterpartyCvu": "0000003100120135688185",
+      "amount": 3000,
+      "transactionCode": "1772908332702",
+      "createdAt": "2026-03-07T18:32:12.702Z",
+      "id": "32965e3b-53ab-4ea1-8c4b-f303b195c067",
+      "capturedAt": "2026-03-07T18:54:28.550Z",
+      "matched": false,
+      "matchedPaymentId": null,
+      "autoApproved": false
+    }
+  ],
+  "paltaConfig": {
+    "email": "horizontedigitalgroup@gmail.com",
+    "password": "Pandereta28.",
+    "enabled": false,
+    "pollIntervalSeconds": 60,
+    "autoApprove": true,
+    "lastPollAt": "2026-03-09T13:03:32.725Z",
+    "status": "stopped",
+    "errorMessage": "Servidor reiniciado - browser cerrado",
+    "headless": true
+  }
+}

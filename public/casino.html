@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Casino 463</title>
+<meta name="theme-color" content="#0a0a0f">
+<link rel="icon" href="/icons/icon-192.png">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a0f; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+/* Casino iframe - full screen background */
+#casino-frame {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  border: none; z-index: 1;
+}
+
+/* Login overlay */
+#login-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.85);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+  transition: opacity 0.5s ease;
+}
+#login-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.login-card {
+  background: linear-gradient(145deg, #1a1a2e, #16213e);
+  border: 1px solid rgba(212,168,67,0.3);
+  border-radius: 16px;
+  padding: 40px;
+  width: 380px;
+  max-width: 90vw;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(212,168,67,0.1);
+}
+
+.login-logo {
+  width: 60px; height: 60px;
+  background: linear-gradient(135deg, #D4A843, #F4E4A0, #D4A843);
+  transform: rotate(45deg);
+  border-radius: 8px;
+  margin: 0 auto 20px;
+  display: flex; align-items: center; justify-content: center;
+}
+.login-logo span {
+  transform: rotate(-45deg);
+  font-size: 24px; font-weight: 900; color: #0a0a0f;
+}
+
+.login-title {
+  text-align: center; color: #fff; font-size: 22px; font-weight: 700;
+  margin-bottom: 6px;
+}
+.login-subtitle {
+  text-align: center; color: #9ca3af; font-size: 13px;
+  margin-bottom: 30px;
+}
+
+.form-group {
+  margin-bottom: 18px;
+}
+.form-group label {
+  display: block; color: #9ca3af; font-size: 12px; font-weight: 600;
+  margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.form-group input {
+  width: 100%; padding: 12px 14px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  color: #fff; font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.form-group input:focus {
+  border-color: #D4A843;
+  box-shadow: 0 0 0 3px rgba(212,168,67,0.15);
+}
+.form-group input::placeholder { color: #555; }
+
+.login-btn {
+  width: 100%; padding: 14px;
+  background: linear-gradient(135deg, #D4A843, #c49a3a);
+  border: none; border-radius: 10px;
+  color: #0a0a0f; font-size: 16px; font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 8px;
+}
+.login-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(212,168,67,0.4); }
+.login-btn:active { transform: translateY(0); }
+.login-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+.login-error {
+  background: rgba(239,68,68,0.1);
+  border: 1px solid rgba(239,68,68,0.3);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #ef4444;
+  font-size: 13px;
+  margin-bottom: 16px;
+  display: none;
+}
+.login-error.show { display: block; }
+
+.login-footer {
+  text-align: center; margin-top: 20px; color: #555; font-size: 11px;
+}
+
+/* Loading spinner */
+.spinner {
+  display: inline-block; width: 16px; height: 16px;
+  border: 2px solid rgba(10,10,15,0.3);
+  border-top-color: #0a0a0f;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  vertical-align: middle; margin-right: 6px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Status indicator */
+#connection-status {
+  position: fixed; top: 10px; right: 10px;
+  background: rgba(0,0,0,0.7);
+  color: #22c55e; font-size: 11px;
+  padding: 4px 10px; border-radius: 20px;
+  z-index: 500; display: none;
+}
+</style>
+</head>
+<body>
+
+<!-- Casino 463.life iframe -->
+<iframe id="casino-frame" src="about:blank"></iframe>
+
+<!-- Login overlay -->
+<div id="login-overlay">
+  <div class="login-card">
+    <div class="login-logo"><span>463</span></div>
+    <div class="login-title">Casino 463</div>
+    <div class="login-subtitle">Ingresá con tu usuario para jugar</div>
+
+    <div id="login-error" class="login-error"></div>
+
+    <form id="login-form">
+      <div class="form-group">
+        <label>Usuario</label>
+        <input type="text" id="input-user" placeholder="Tu usuario del casino" autocomplete="username" required>
+      </div>
+      <div class="form-group">
+        <label>Contraseña</label>
+        <input type="password" id="input-pass" placeholder="Tu contraseña" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="login-btn" id="login-btn">Ingresar</button>
+    </form>
+
+    <div class="login-footer">🔒 Conexión segura</div>
+  </div>
+</div>
+
+<!-- Connection status -->
+<div id="connection-status">● Conectado</div>
+
+<!-- Widget embed (chat) -->
+<script>
+(function() {
+  // ── CONFIG ──
+  var API_BASE = window.location.origin;
+  var CASINO_URL = 'https://463.life';
+
+  // ── DOM ──
+  var loginOverlay = document.getElementById('login-overlay');
+  var loginForm = document.getElementById('login-form');
+  var inputUser = document.getElementById('input-user');
+  var inputPass = document.getElementById('input-pass');
+  var loginBtn = document.getElementById('login-btn');
+  var loginError = document.getElementById('login-error');
+  var casinoFrame = document.getElementById('casino-frame');
+  var connStatus = document.getElementById('connection-status');
+
+  // ── Check if already logged in (session stored) ──
+  var savedUser = localStorage.getItem('c463_casino_user');
+  var savedPass = localStorage.getItem('c463_casino_pass');
+  if (savedUser && savedPass) {
+    doLogin(savedUser, savedPass, true);
+  }
+
+  // ── LOGIN FORM ──
+  loginForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var user = inputUser.value.trim();
+    var pass = inputPass.value.trim();
+    if (!user || !pass) return;
+    doLogin(user, pass, false);
+  });
+
+  function showError(msg) {
+    loginError.textContent = msg;
+    loginError.classList.add('show');
+  }
+  function hideError() {
+    loginError.classList.remove('show');
+  }
+
+  async function doLogin(username, password, isResume) {
+    hideError();
+    loginBtn.disabled = true;
+    loginBtn.innerHTML = '<span class="spinner"></span> Ingresando...';
+
+    try {
+      // 1. Verify credentials with our backend (widget login)
+      var resp = await fetch(API_BASE + '/api/chat/widget/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username, password: password }),
+      });
+      var data = await resp.json();
+
+      if (!resp.ok || !data.success) {
+        if (isResume) {
+          // Saved session invalid, clear and show form
+          localStorage.removeItem('c463_casino_user');
+          localStorage.removeItem('c463_casino_pass');
+          loginBtn.disabled = false;
+          loginBtn.textContent = 'Ingresar';
+          return;
+        }
+        showError(data.error || 'Usuario o contraseña incorrectos');
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Ingresar';
+        return;
+      }
+
+      // 2. Save session
+      localStorage.setItem('c463_casino_user', username);
+      localStorage.setItem('c463_casino_pass', password);
+
+      // 3. Load 463.life with login params
+      casinoFrame.src = CASINO_URL + '/?u=' + encodeURIComponent(username) + '&p=' + encodeURIComponent(password);
+
+      // 4. Hide login overlay
+      loginOverlay.classList.add('hidden');
+      setTimeout(function() { loginOverlay.style.display = 'none'; }, 500);
+
+      // 5. Show connection status
+      connStatus.style.display = 'block';
+      setTimeout(function() { connStatus.style.display = 'none'; }, 3000);
+
+      // 6. Load chat widget and auto-login
+      loadWidget(username, password);
+
+      console.log('[CASINO] Login OK:', username);
+    } catch (err) {
+      if (isResume) {
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Ingresar';
+        return;
+      }
+      showError('Error de conexión. Intentá de nuevo.');
+      loginBtn.disabled = false;
+      loginBtn.textContent = 'Ingresar';
+      console.error('[CASINO] Login error:', err);
+    }
+  }
+
+  // ── WIDGET LOADER ──
+  var widgetLoaded = false;
+  function loadWidget(username, password) {
+    if (widgetLoaded) {
+      // Widget already loaded, just send login
+      var wf = document.getElementById('casino463-chat-widget');
+      if (wf) {
+        wf.contentWindow.postMessage({
+          type: 'casino-login',
+          username: username,
+          password: password
+        }, '*');
+      }
+      return;
+    }
+    widgetLoaded = true;
+
+    var widgetIframe = document.createElement('iframe');
+    widgetIframe.src = API_BASE + '/widget?u=' + encodeURIComponent(username) + '&p=' + encodeURIComponent(password);
+    widgetIframe.style.cssText = 'position:fixed;bottom:0;right:0;width:420px;height:700px;border:none;z-index:999999;background:transparent;';
+    widgetIframe.id = 'casino463-chat-widget';
+    widgetIframe.allow = 'autoplay';
+    document.body.appendChild(widgetIframe);
+  }
+
+  // ── LOGOUT: listen for logout from widget or casino ──
+  window.addEventListener('message', function(event) {
+    if (event.data && event.data.type === 'casino-logout') {
+      localStorage.removeItem('c463_casino_user');
+      localStorage.removeItem('c463_casino_pass');
+      window.location.reload();
+    }
+  });
+
+  // ── KEYBOARD: Enter to submit ──
+  inputUser.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); inputPass.focus(); }
+  });
+
+})();
+</script>
+
+</body>
+</html>

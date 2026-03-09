@@ -1,0 +1,25 @@
+{
+  "name": "Casino 463",
+  "short_name": "Casino 463",
+  "description": "Casino 463 - Chat en Vivo y Soporte",
+  "start_url": "/widget",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#D4A843",
+  "background_color": "#0a0a0f",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

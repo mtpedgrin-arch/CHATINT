@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Build output
+dist/
+frontend/dist/
+
+# Environment
+.env
+
+# Data (real data stays local, template goes to repo)
+data/store.json
+data/push-automation.json
+data/palta-session/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Uploads (user-generated, keep folder structure)
+public/uploads/*.jpeg
+public/uploads/*.jpg
+public/uploads/*.png
+public/uploads/*.gif
+public/uploads/*.webp
+!public/uploads/.gitkeep

@@ -1,0 +1,3807 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Casino 463 - Chat en Vivo</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#D4A843">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Casino 463">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<style>
+/* ============================================
+   CSS RESET & BASE
+   ============================================ */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  color: #e0e0e0;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  pointer-events: none;
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(212, 168, 67, 0.5); }
+  70% { box-shadow: 0 0 0 14px rgba(212, 168, 67, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(212, 168, 67, 0); }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fadeOutDown {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+}
+
+@keyframes slideInMessage {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes dotBounce {
+  0%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-6px); }
+}
+
+@keyframes badgePop {
+  0% { transform: scale(0); }
+  60% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ============================================
+   TOGGLE BUTTON (COLLAPSED STATE)
+   ============================================ */
+#widget-toggle {
+  position: fixed;
+  bottom: 80px;
+  right: 24px;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  border: 2px solid rgba(244,228,160,.35);
+  cursor: pointer;
+  background: radial-gradient(circle at 35% 35%, #e8c65a 0%, #D4A843 40%, #a37e2c 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    0 4px 24px rgba(212,168,67,.45),
+    0 0 0 0 rgba(212,168,67,.4),
+    inset 0 1px 2px rgba(255,255,255,.25);
+  transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .3s ease;
+  z-index: 10000;
+  outline: none;
+  pointer-events: auto;
+  animation: togglePulseRing 3s ease-in-out infinite;
+}
+
+@keyframes togglePulseRing {
+  0%,100% { box-shadow: 0 4px 24px rgba(212,168,67,.45), 0 0 0 0 rgba(212,168,67,.35), inset 0 1px 2px rgba(255,255,255,.25); }
+  50% { box-shadow: 0 4px 24px rgba(212,168,67,.45), 0 0 0 10px rgba(212,168,67,0), inset 0 1px 2px rgba(255,255,255,.25); }
+}
+
+#widget-toggle:hover {
+  transform: scale(1.12);
+  box-shadow: 0 6px 32px rgba(212,168,67,.6), 0 0 0 0 rgba(212,168,67,.4), inset 0 1px 2px rgba(255,255,255,.25);
+  animation: none;
+}
+
+#widget-toggle:active {
+  transform: scale(0.93);
+}
+
+#widget-toggle svg {
+  width: 28px;
+  height: 28px;
+  fill: #fff;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.3));
+  transition: transform .3s ease;
+}
+
+#widget-toggle.open svg {
+  transform: rotate(90deg) scale(.85);
+}
+
+/* Online green dot on button */
+#widget-toggle::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 14px;
+  height: 14px;
+  background: #22c55e;
+  border-radius: 50%;
+  border: 2.5px solid #0a0a0f;
+  animation: onlinePulse 2s ease-in-out infinite;
+}
+@keyframes onlinePulse {
+  0%,100% { opacity:1; }
+  50% { opacity:.6; }
+}
+#widget-toggle.open::after { display: none; }
+
+/* Unread Badge */
+#unread-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 22px;
+  height: 22px;
+  background: #e74c3c;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 11px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  animation: badgePop .3s ease;
+  box-shadow: 0 2px 8px rgba(231,76,60,.6);
+  border: 2px solid #0a0a0f;
+}
+
+#unread-badge.show {
+  display: flex;
+}
+
+/* ============================================
+   PROMO BUBBLE (appears every 30s)
+   ============================================ */
+#promo-bubble {
+  position: fixed;
+  bottom: 155px;
+  right: 24px;
+  max-width: 240px;
+  padding: 12px 16px;
+  background: #111218;
+  border: 1px solid rgba(212,168,67,.25);
+  border-radius: 14px 14px 4px 14px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  z-index: 10001;
+  pointer-events: auto;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(10px) scale(.92);
+  transition: opacity .4s ease, transform .4s cubic-bezier(.34,1.56,.64,1);
+  box-shadow: 0 8px 32px rgba(0,0,0,.5), 0 0 0 1px rgba(212,168,67,.08);
+}
+#promo-bubble.show {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+#promo-bubble .promo-icon {
+  margin-right: 6px;
+}
+#promo-bubble .promo-text-gold {
+  color: #D4A843;
+  font-weight: 700;
+}
+#promo-bubble .promo-close {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #6b7280;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px;
+  line-height: 1;
+}
+#promo-bubble .promo-close:hover {
+  color: #fff;
+}
+/* Small triangle pointing down-right toward the button */
+#promo-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  right: 20px;
+  width: 12px;
+  height: 12px;
+  background: #111218;
+  border-right: 1px solid rgba(212,168,67,.25);
+  border-bottom: 1px solid rgba(212,168,67,.25);
+  transform: rotate(45deg);
+}
+
+/* ============================================
+   CHAT CONTAINER
+   ============================================ */
+#chat-container {
+  position: fixed;
+  bottom: 150px;
+  right: 20px;
+  width: 380px;
+  max-width: calc(100vw - 30px);
+  height: 520px;
+  max-height: calc(100vh - 170px);
+  background: #0a0a0f;
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(212, 168, 67, 0.15);
+  opacity: 0;
+  transform: translateY(20px) scale(0.95);
+  pointer-events: none;
+  transition: opacity 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+              transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 9999;
+}
+
+#chat-container.open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+/* ============================================
+   HEADER
+   ============================================ */
+.chat-header {
+  background: #111218;
+  border-top: 3px solid;
+  border-image: linear-gradient(90deg, #D4A843, #b8912e, #D4A843) 1;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.chat-header-logo {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, #D4A843, #b8912e);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.chat-header-logo svg {
+  width: 20px;
+  height: 20px;
+  fill: #fff;
+}
+
+.chat-header-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-header-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.3px;
+}
+
+.chat-header-status {
+  font-size: 12px;
+  color: #888;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 1px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2ecc71;
+  flex-shrink: 0;
+}
+
+.status-dot.offline {
+  background: #e74c3c;
+}
+
+.chat-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.header-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+  color: #888;
+}
+
+.header-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.header-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+/* ============================================
+   PRE-CHAT FORM
+   ============================================ */
+#prechat-form {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 20px;
+  overflow-y: auto;
+}
+
+#prechat-form.hidden {
+  display: none;
+}
+
+.prechat-welcome {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.prechat-welcome h3 {
+  color: #D4A843;
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.prechat-welcome p {
+  color: #888;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #aaa;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.form-group label .required {
+  color: #e74c3c;
+  margin-left: 2px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 10px 14px;
+  background: #1a1b2e;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: #e0e0e0;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-input::placeholder {
+  color: #555;
+}
+
+.form-input:focus {
+  border-color: rgba(212, 168, 67, 0.5);
+  box-shadow: 0 0 0 3px rgba(212, 168, 67, 0.1);
+}
+
+.form-input.error {
+  border-color: #e74c3c;
+  box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.1);
+}
+
+.form-error {
+  color: #e74c3c;
+  font-size: 12px;
+  margin-top: 4px;
+  display: none;
+}
+
+.form-error.show {
+  display: block;
+}
+
+#start-chat-btn {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #D4A843, #b8912e);
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.15s ease;
+  margin-top: 8px;
+  letter-spacing: 0.3px;
+}
+
+#start-chat-btn:hover {
+  opacity: 0.9;
+}
+
+#start-chat-btn:active {
+  transform: scale(0.98);
+}
+
+#start-chat-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ============================================
+   CHAT AREA
+   ============================================ */
+#chat-area {
+  flex: 1;
+  display: none;
+  flex-direction: column;
+  min-height: 0;
+}
+
+#chat-area.active {
+  display: flex;
+}
+
+/* Messages */
+#messages-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  scroll-behavior: smooth;
+}
+
+#messages-container::-webkit-scrollbar {
+  width: 5px;
+}
+
+#messages-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#messages-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+#messages-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Message Bubbles */
+.message-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  animation: slideInMessage 0.3s ease;
+  margin-bottom: 2px;
+}
+
+.message-row.visitor {
+  flex-direction: row-reverse;
+}
+
+.message-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #D4A843, #b8912e);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 12px;
+  color: #fff;
+  font-weight: 700;
+}
+
+.message-avatar svg {
+  width: 14px;
+  height: 14px;
+  fill: #fff;
+}
+
+.message-content {
+  max-width: 75%;
+  min-width: 60px;
+}
+
+.message-bubble {
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  word-wrap: break-word;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.message-bubble img {
+  max-width: 80px;
+  max-height: 80px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: block;
+  object-fit: cover;
+}
+
+.message-bubble.image-bubble {
+  padding: 4px;
+  background: rgba(255,255,255,0.05) !important;
+  border-radius: 10px;
+}
+
+.message-row.agent .message-bubble,
+.message-row.bot .message-bubble,
+.message-row.system .message-bubble {
+  background: #1a1b2e;
+  color: #e0e0e0;
+  border-bottom-left-radius: 4px;
+}
+
+.message-row.visitor .message-bubble {
+  background: linear-gradient(135deg, rgba(212, 168, 67, 0.25), rgba(184, 145, 46, 0.2));
+  color: #f0e6cc;
+  border-bottom-right-radius: 4px;
+}
+
+.message-row.system .message-bubble {
+  background: rgba(212, 168, 67, 0.1);
+  color: #D4A843;
+  text-align: center;
+  font-size: 12px;
+  border-radius: 8px;
+  max-width: 100%;
+}
+
+.message-row.system {
+  justify-content: center;
+}
+
+.message-row.system .message-avatar {
+  display: none;
+}
+
+.message-sender {
+  font-size: 11px;
+  color: #D4A843;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+
+.message-time {
+  font-size: 10.5px;
+  color: #555;
+  margin-top: 3px;
+  text-align: right;
+}
+
+.message-row.visitor .message-time {
+  text-align: right;
+}
+
+.message-row.agent .message-time,
+.message-row.bot .message-time {
+  text-align: left;
+}
+
+/* Typing Indicator */
+#typing-indicator {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 8px;
+}
+
+#typing-indicator.show {
+  display: flex;
+}
+
+.typing-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #D4A843, #b8912e);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.typing-avatar svg {
+  width: 14px;
+  height: 14px;
+  fill: #fff;
+}
+
+.typing-dots {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: #1a1b2e;
+  padding: 10px 14px;
+  border-radius: 16px;
+  border-bottom-left-radius: 4px;
+}
+
+.typing-dots span {
+  width: 6px;
+  height: 6px;
+  background: #888;
+  border-radius: 50%;
+  animation: dotBounce 1.4s ease-in-out infinite;
+}
+
+.typing-dots span:nth-child(2) { animation-delay: 0.16s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.32s; }
+
+/* Quick Actions */
+#quick-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 8px 14px 4px;
+  flex-shrink: 0;
+}
+
+#quick-actions.single-row {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.quick-btn {
+  white-space: nowrap;
+  padding: 8px 12px;
+  border: 1px solid rgba(212, 168, 67, 0.35);
+  background: linear-gradient(135deg, rgba(212, 168, 67, 0.08), rgba(212, 168, 67, 0.03));
+  color: #D4A843;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease, border-color 0.2s ease;
+  font-family: inherit;
+  text-align: center;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.quick-btn:hover {
+  background: linear-gradient(135deg, rgba(212, 168, 67, 0.2), rgba(212, 168, 67, 0.1));
+  border-color: rgba(212, 168, 67, 0.6);
+  color: #e8c35a;
+}
+
+.quick-btn:active {
+  transform: scale(0.96);
+}
+
+/* Upload Button */
+#upload-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.2s ease;
+  color: #888;
+  font-size: 18px;
+}
+#upload-btn:hover {
+  background: rgba(255,255,255,0.08);
+  color: #D4A843;
+}
+
+/* Copy Button for CBU/ALIAS */
+.copyable-data {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0;
+}
+
+.copyable-data .copy-label {
+  font-size: 12px;
+  color: #999;
+  font-weight: 600;
+}
+
+.copyable-data .copy-value {
+  font-weight: 700;
+  font-size: 11.5px;
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0;
+  word-break: break-all;
+  color: #fff;
+  background: rgba(255,255,255,0.06);
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 14px;
+  background: rgba(212, 168, 67, 0.15);
+  border: 1px solid rgba(212, 168, 67, 0.4);
+  color: #D4A843;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s, border-color 0.2s;
+  font-family: inherit;
+  white-space: nowrap;
+  align-self: flex-start;
+}
+
+.copy-btn:hover {
+  background: rgba(212, 168, 67, 0.3);
+  border-color: rgba(212, 168, 67, 0.6);
+}
+
+.copy-btn:active {
+  transform: scale(0.93);
+}
+
+.copy-btn.copied {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(34, 197, 94, 0.5);
+  color: #22c55e;
+}
+
+/* Upload Comprobante Button (in chat) */
+.upload-comprobante-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, rgba(212, 168, 67, 0.15), rgba(212, 168, 67, 0.08));
+  border: 1.5px dashed rgba(212, 168, 67, 0.5);
+  color: #D4A843;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s;
+  font-family: inherit;
+  margin: 0;
+}
+
+.upload-comprobante-btn:hover {
+  background: linear-gradient(135deg, rgba(212, 168, 67, 0.25), rgba(212, 168, 67, 0.15));
+  border-color: rgba(212, 168, 67, 0.7);
+}
+
+.upload-comprobante-btn:active {
+  transform: scale(0.97);
+}
+
+/* Back / Volver Button */
+.quick-btn.back-btn {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  font-size: 12px !important;
+  padding: 6px 14px !important;
+  min-height: 32px !important;
+}
+.quick-btn.back-btn:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* ============================================
+   IDENTIFICATION SCREEN (pre-login)
+   ============================================ */
+.identify-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  text-align: center;
+}
+
+.identify-icon {
+  width: 72px;
+  height: 72px;
+  background: linear-gradient(135deg, #D4A843, #b8912e);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 20px rgba(212, 168, 67, 0.3);
+}
+
+.identify-icon svg {
+  width: 36px;
+  height: 36px;
+  fill: #fff;
+}
+
+.identify-title {
+  color: #D4A843;
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.identify-text {
+  color: #888;
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 32px;
+  max-width: 280px;
+}
+
+#btn-entra-aqui {
+  width: 100%;
+  max-width: 280px;
+  padding: 14px 24px;
+  background: linear-gradient(135deg, #D4A843, #b8912e);
+  border: none;
+  border-radius: 12px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+  letter-spacing: 0.3px;
+  box-shadow: 0 4px 16px rgba(212, 168, 67, 0.3);
+}
+
+#btn-entra-aqui:hover {
+  opacity: 0.92;
+  transform: scale(1.02);
+  box-shadow: 0 6px 24px rgba(212, 168, 67, 0.45);
+}
+
+#btn-entra-aqui:active {
+  transform: scale(0.97);
+}
+
+/* ============================================
+   PWA INSTALL BANNER
+   ============================================ */
+#pwa-install-banner {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 10002;
+  pointer-events: auto;
+  align-items: center;
+  justify-content: center;
+}
+
+#pwa-install-banner.show { display: flex; }
+
+.pwa-install-card {
+  background: linear-gradient(145deg, #1a1a2e 0%, #111218 100%);
+  border: 1.5px solid rgba(212,168,67,0.35);
+  border-radius: 20px;
+  padding: 28px 24px;
+  width: 260px;
+  text-align: center;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 40px rgba(212,168,67,0.08);
+  animation: popInCard 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes popInCard {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.pwa-install-card .pwa-banner-close {
+  position: absolute;
+  top: 10px; right: 14px;
+  background: none; border: none;
+  color: #6b7280; font-size: 18px;
+  cursor: pointer; padding: 4px;
+}
+.pwa-install-card .pwa-banner-close:hover { color: #fff; }
+
+.pwa-banner-icon {
+  font-size: 48px;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.pwa-banner-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #bbb;
+  margin-bottom: 18px;
+}
+
+.pwa-banner-text strong {
+  color: #D4A843;
+  display: block;
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.pwa-install-btn {
+  background: linear-gradient(135deg, #D4A843, #b8912e);
+  color: #000;
+  border: none;
+  padding: 12px 32px;
+  border-radius: 24px;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  width: 100%;
+  letter-spacing: 0.3px;
+}
+
+.pwa-install-btn:active { transform: scale(0.95); }
+
+.pwa-skip-link {
+  display: block;
+  margin-top: 12px;
+  color: #666;
+  font-size: 12px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  text-decoration: underline;
+}
+
+/* ============================================
+   PUSH NOTIFICATION BANNER
+   ============================================ */
+#push-notify-banner {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 10003;
+  pointer-events: auto;
+  align-items: center;
+  justify-content: center;
+}
+#push-notify-banner.show { display: flex; }
+
+.push-notify-card {
+  background: linear-gradient(145deg, #1a1a2e 0%, #111218 100%);
+  border: 1.5px solid rgba(108,92,231,0.4);
+  border-radius: 20px;
+  padding: 28px 24px;
+  width: 270px;
+  text-align: center;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 40px rgba(108,92,231,0.1);
+  animation: popInCard 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.push-notify-card .push-banner-close {
+  position: absolute;
+  top: 10px; right: 14px;
+  background: none; border: none;
+  color: #6b7280; font-size: 18px;
+  cursor: pointer; padding: 4px;
+}
+.push-notify-card .push-banner-close:hover { color: #fff; }
+
+.push-notify-icon {
+  font-size: 48px;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.push-notify-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #bbb;
+  margin-bottom: 18px;
+}
+
+.push-notify-text strong {
+  color: #a29bfe;
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.push-notify-btn {
+  background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+  color: #fff;
+  border: none;
+  padding: 12px 32px;
+  border-radius: 24px;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  width: 100%;
+  letter-spacing: 0.3px;
+}
+.push-notify-btn:active { transform: scale(0.95); }
+
+.push-notify-skip {
+  display: block;
+  margin-top: 12px;
+  color: #666;
+  font-size: 12px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  text-decoration: underline;
+}
+
+/* ============================================
+   POPUP OVERLAY (from admin)
+   ============================================ */
+#popup-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.75);
+  z-index: 10003;
+  pointer-events: auto;
+  align-items: center;
+  justify-content: center;
+  animation: fadeInPopup 0.3s ease;
+}
+
+@keyframes fadeInPopup {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+#popup-overlay.show { display: flex; }
+
+.popup-card {
+  background: linear-gradient(135deg, #1a1a2e, #111218);
+  border: 1px solid rgba(212,168,67,0.3);
+  border-radius: 16px;
+  max-width: 340px;
+  width: 90%;
+  padding: 24px 20px;
+  text-align: center;
+  position: relative;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(212,168,67,0.1);
+}
+
+.popup-card .popup-close {
+  position: absolute;
+  top: 10px; right: 14px;
+  background: none; border: none;
+  color: #6b7280;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.popup-card .popup-image {
+  max-width: 100%;
+  max-height: 160px;
+  border-radius: 10px;
+  margin-bottom: 14px;
+  object-fit: cover;
+}
+
+.popup-card .popup-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #D4A843;
+  margin-bottom: 8px;
+}
+
+.popup-card .popup-body {
+  font-size: 14px;
+  color: #ccc;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.popup-card .popup-btn {
+  background: linear-gradient(135deg, #D4A843, #b8912e);
+  color: #000;
+  border: none;
+  padding: 10px 28px;
+  border-radius: 22px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-block;
+  text-decoration: none;
+}
+
+.popup-card .popup-btn:active { transform: scale(0.95); }
+
+/* ── Special Popups: Fichas Cargadas & Retiro Pagado ── */
+.popup-card .popup-big-icon {
+  font-size: 64px;
+  line-height: 1;
+  margin-bottom: 10px;
+  animation: popBounce 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+@keyframes popBounce {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.popup-card .popup-amount {
+  font-size: 32px;
+  font-weight: 900;
+  background: linear-gradient(135deg, #D4A843, #F4E4A0, #D4A843);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 6px;
+}
+.popup-card .popup-subtitle {
+  font-size: 13px;
+  color: #9ca3af;
+  margin-bottom: 16px;
+}
+.popup-card.popup-success {
+  border-color: rgba(34,197,94,0.4);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.6), 0 0 30px rgba(34,197,94,0.15);
+}
+.popup-card.popup-payout {
+  border-color: rgba(59,130,246,0.4);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.6), 0 0 30px rgba(59,130,246,0.15);
+}
+@keyframes confettiFall {
+  0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(40px) rotate(360deg); opacity: 0; }
+}
+.popup-confetti {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 60px;
+  overflow: hidden;
+  pointer-events: none;
+}
+.popup-confetti span {
+  position: absolute;
+  top: -10px;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  animation: confettiFall 1.5s ease-out forwards;
+}
+
+/* Input Area */
+.input-area {
+  background: #1a1b2e;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
+}
+
+#message-input {
+  flex: 1;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  color: #e0e0e0;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s ease;
+  resize: none;
+  min-height: 40px;
+  max-height: 100px;
+  line-height: 1.4;
+}
+
+#message-input::placeholder {
+  color: #555;
+}
+
+#message-input:focus {
+  border-color: rgba(212, 168, 67, 0.4);
+}
+
+#send-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #D4A843, #b8912e);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: opacity 0.2s ease, transform 0.15s ease;
+}
+
+#send-btn:hover {
+  opacity: 0.9;
+}
+
+#send-btn:active {
+  transform: scale(0.9);
+}
+
+#send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+#send-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: #fff;
+  margin-left: 2px;
+}
+
+/* Chat Resolved Overlay */
+.chat-resolved-banner {
+  background: rgba(212, 168, 67, 0.1);
+  border-top: 1px solid rgba(212, 168, 67, 0.2);
+  padding: 14px 16px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.chat-resolved-banner p {
+  color: #D4A843;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.chat-resolved-banner button {
+  padding: 8px 24px;
+  background: linear-gradient(135deg, #D4A843, #b8912e);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.chat-resolved-banner button:hover {
+  opacity: 0.9;
+}
+
+/* ============================================
+   EVENT BANNER
+   ============================================ */
+/* ============================================
+   FLOATING EVENT BANNER (outside chat, full screen)
+   ============================================ */
+@keyframes bannerShimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+@keyframes timerPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+@keyframes bannerGlow {
+  0%, 100% { box-shadow: 0 4px 20px rgba(0,0,0,0.6), 0 0 20px rgba(212,168,67,0.15); }
+  50% { box-shadow: 0 4px 20px rgba(0,0,0,0.6), 0 0 40px rgba(212,168,67,0.3); }
+}
+
+/* Event banner styles handled via inline styles */
+
+.event-banner-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 14px 24px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.event-banner-icon {
+  font-size: 32px;
+  animation: pulse 2s infinite;
+  flex-shrink: 0;
+}
+
+.event-banner-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.event-banner-text {
+  color: #fff;
+  font-weight: 800;
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.event-banner-sub {
+  color: #D4A843;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.event-banner-prize {
+  color: #FFD700;
+  font-weight: 800;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  text-shadow: 0 0 8px rgba(255,215,0,0.3);
+}
+
+.event-banner-timer-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(212,168,67,0.4);
+  border-radius: 10px;
+  padding: 8px 16px;
+  flex-shrink: 0;
+}
+
+.event-banner-timer-label {
+  color: #9ca3af;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.event-banner-timer {
+  font-family: 'Courier New', monospace;
+  font-weight: 900;
+  font-size: 24px;
+  color: #FFD700;
+  min-width: 90px;
+  text-align: center;
+  letter-spacing: 3px;
+  text-shadow: 0 0 12px rgba(255,215,0,0.5);
+}
+
+.event-banner-timer.urgent {
+  color: #ff4444;
+  animation: timerPulse 0.5s infinite;
+  text-shadow: 0 0 12px rgba(255,68,68,0.5);
+}
+
+.event-banner-btn {
+  background: linear-gradient(90deg, #D4A843, #FFD700, #D4A843);
+  background-size: 200% 100%;
+  animation: bannerShimmer 3s linear infinite;
+  color: #000;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 25px;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 2px 15px rgba(212,168,67,0.4);
+  flex-shrink: 0;
+}
+
+.event-banner-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 4px 20px rgba(212,168,67,0.6);
+}
+
+.event-banner-btn:disabled {
+  background: #4a4a3a;
+  color: #888;
+  cursor: default;
+  box-shadow: none;
+  transform: none;
+  animation: none;
+}
+
+@media (max-width: 600px) {
+  .event-banner-content {
+    gap: 10px;
+    padding: 10px 14px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .event-banner-text { font-size: 13px; }
+  .event-banner-timer { font-size: 18px; }
+  .event-banner-sub, .event-banner-prize { display: none; }
+  .event-banner-btn { padding: 8px 16px; font-size: 12px; }
+}
+
+/* Event special button in menu */
+.quick-btn.event-btn-special {
+  grid-column: 1 / -1; /* Span full width */
+  background: linear-gradient(90deg, #D4A843, #FFD700, #D4A843) !important;
+  background-size: 200% 100% !important;
+  animation: shimmer 2s linear infinite !important;
+  color: #000 !important;
+  font-weight: 800 !important;
+  border: 2px solid #FFD700 !important;
+  box-shadow: 0 0 12px rgba(212,168,67,0.4) !important;
+  text-shadow: none !important;
+  font-size: 12px !important;
+}
+
+.quick-btn.event-btn-special:active {
+  transform: scale(0.97);
+}
+
+/* Mini event banner inside chat */
+#event-banner-mini {
+  display: none;
+  background: linear-gradient(135deg, #2a1f0a, #1a1510);
+  border-bottom: 1px solid rgba(212,168,67,0.4);
+  padding: 5px 12px;
+  z-index: 5;
+  flex-shrink: 0;
+}
+#event-banner-mini.show { display: block; }
+
+.event-mini-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+.event-mini-icon {
+  font-size: 13px;
+  animation: pulse 2s infinite;
+}
+.event-mini-text {
+  color: #D4A843;
+  font-weight: 600;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
+}
+.event-mini-timer {
+  font-family: 'Courier New', monospace;
+  font-weight: 700;
+  font-size: 12px;
+  color: #FFD700;
+  min-width: 36px;
+  text-align: center;
+}
+.event-mini-timer.urgent {
+  color: #ff6b6b;
+  animation: timerPulse 1s infinite;
+}
+
+#widget-toggle, #chat-container, #promo-bubble {
+  z-index: 9999;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+@media (max-width: 440px) {
+  #chat-container {
+    bottom: 0;
+    right: 0;
+    width: 100vw;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  #widget-toggle {
+    bottom: 16px;
+    right: 16px;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- Background: Casino 463 page (siteUrl overridable via ?siteUrl=...) -->
+<iframe id="bg-iframe" src="https://463.life" style="position:fixed; top:0; left:0; width:100%; height:100%; border:none; z-index:0; pointer-events:auto; transition:top 0.3s ease, height 0.3s ease;"></iframe>
+<script>
+// Handle embed params: ?siteUrl= overrides bg-iframe URL, ?noBg=true hides it entirely
+(function() {
+  try {
+    if (window.__casino463_embedMode) return; // Skip in embed mode (casino-widget.js handles bg-iframe)
+    var params = new URLSearchParams(window.location.search);
+    var noBg = params.get('noBg');
+    var siteUrl = params.get('siteUrl');
+    var bgIframe = document.getElementById('bg-iframe');
+    if (noBg === 'true' || noBg === '1') {
+      // Embedded mode: bg-iframe is managed by casino-widget.js in the parent page
+      bgIframe.style.display = 'none';
+      bgIframe.src = 'about:blank';
+      window.__embedMode = true;
+    } else if (siteUrl) {
+      bgIframe.src = siteUrl;
+    }
+  } catch(e) {}
+})();
+</script>
+
+<!-- FLOATING EVENT BANNER (compact reminder bar) -->
+<div id="event-banner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:999999; pointer-events:auto; background:linear-gradient(90deg,#0d0a00,#1a1200,#0d0a00); border-bottom:1px solid rgba(212,168,67,0.5); box-shadow:0 2px 12px rgba(0,0,0,0.5); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <div style="display:flex; align-items:center; justify-content:center; gap:12px; padding:7px 16px;">
+    <span style="font-size:14px;">🎰</span>
+    <span id="event-banner-text" style="color:#D4A843; font-weight:700; font-size:12px; letter-spacing:0.3px;">¡Evento activo!</span>
+    <span id="event-banner-sub" style="display:none;"></span>
+    <span id="event-banner-prize" style="color:#FFD700; font-weight:700; font-size:12px;">🏆 $50.000</span>
+    <span style="color:rgba(255,255,255,0.2);">|</span>
+    <span id="event-timer" style="font-family:'Courier New',monospace; font-weight:800; font-size:13px; color:#FFD700; letter-spacing:1px; text-shadow:0 0 6px rgba(255,215,0,0.3);">00:00:00</span>
+    <button id="event-banner-btn" style="background:linear-gradient(90deg,#D4A843,#FFD700,#D4A843); background-size:200% 100%; color:#000; border:none; padding:5px 14px; border-radius:12px; font-size:11px; font-weight:800; cursor:pointer; white-space:nowrap; text-transform:uppercase; letter-spacing:0.5px;">PARTICIPÁ</button>
+  </div>
+</div>
+
+<!-- ============================================
+     TOGGLE BUTTON
+     ============================================ -->
+<!-- Promo Bubble -->
+<div id="promo-bubble">
+  <button class="promo-close" onclick="closePromo()">&times;</button>
+  <span id="promo-content"></span>
+</div>
+
+<button id="widget-toggle" aria-label="Abrir chat en vivo">
+  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/>
+    <path d="M7 9h10v2H7zM7 5h10v2H7z"/>
+  </svg>
+  <span id="unread-badge">0</span>
+</button>
+
+<!-- ============================================
+     CHAT CONTAINER
+     ============================================ -->
+<div id="chat-container">
+  <!-- Header -->
+  <div class="chat-header">
+    <div class="chat-header-logo">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2L8.5 8.5 2 12l6.5 3.5L12 22l3.5-6.5L22 12l-6.5-3.5L12 2zm0 4.24L13.76 10.24 17.76 12 13.76 13.76 12 17.76 10.24 13.76 6.24 12 10.24 10.24 12 6.24z"/>
+      </svg>
+    </div>
+    <div class="chat-header-info">
+      <div class="chat-header-title">Casino 463</div>
+      <div class="chat-header-status">
+        <span class="status-dot" id="status-dot"></span>
+        <span id="status-text">Chat en Vivo</span>
+      </div>
+    </div>
+    <div class="chat-header-actions">
+      <button class="header-btn" id="btn-minimize" title="Minimizar" aria-label="Minimizar chat">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+        </svg>
+      </button>
+      <button class="header-btn" id="btn-close" title="Cerrar chat" aria-label="Cerrar chat">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Mini Event Banner inside chat -->
+  <div id="event-banner-mini">
+    <div class="event-mini-content">
+      <span class="event-mini-icon">🎰</span>
+      <span class="event-mini-text" id="event-mini-text">¡Evento activo!</span>
+      <span class="event-mini-timer" id="event-mini-timer">00:00</span>
+    </div>
+  </div>
+
+  <!-- Identification Screen (pre-login) -->
+  <div id="prechat-form">
+    <div class="identify-container">
+      <div class="identify-icon">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L8.5 8.5 2 12l6.5 3.5L12 22l3.5-6.5L22 12l-6.5-3.5L12 2z"/>
+        </svg>
+      </div>
+      <h3 class="identify-title">Identificación</h3>
+      <p class="identify-text">Bienvenido. Por favor, ingresá a tu cuenta para abrir el chat.</p>
+      <button id="btn-entra-aqui">Entra aquí</button>
+    </div>
+  </div>
+
+  <!-- Chat Area -->
+  <div id="chat-area">
+    <div id="messages-container"></div>
+
+    <div id="typing-indicator">
+      <div class="typing-avatar">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L8.5 8.5 2 12l6.5 3.5L12 22l3.5-6.5L22 12l-6.5-3.5L12 2z"/>
+        </svg>
+      </div>
+      <div class="typing-dots">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    </div>
+
+    <div id="quick-actions">
+      <button class="quick-btn" data-text="Depositar">💰 Cargar</button>
+      <button class="quick-btn" data-text="Retirar">💸 Retirar</button>
+      <button class="quick-btn" data-text="Soporte">🤝 Soporte</button>
+      <button class="quick-btn" data-text="Bonos">🎁 Cuponera</button>
+    </div>
+
+    <div class="input-area" id="input-area">
+      <button id="upload-btn" aria-label="Adjuntar imagen" title="Adjuntar comprobante">📎</button>
+      <input type="file" id="file-input" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none">
+      <textarea id="message-input" placeholder="Escribe un mensaje..." rows="1"></textarea>
+      <button id="send-btn" aria-label="Enviar mensaje">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Resolved banner (hidden by default) -->
+    <div class="chat-resolved-banner" id="resolved-banner" style="display:none;">
+      <p>Este chat ha sido finalizado.</p>
+      <button id="btn-new-chat">Iniciar nuevo chat</button>
+    </div>
+  </div>
+</div>
+
+<!-- PWA Install Banner -->
+<div id="pwa-install-banner">
+  <div class="pwa-install-card">
+    <button class="pwa-banner-close" id="pwa-banner-close">✕</button>
+    <span class="pwa-banner-icon">📲</span>
+    <div class="pwa-banner-text">
+      <strong>Instalar Casino 463</strong>
+      Accedé más rápido desde tu pantalla de inicio, sin descargar nada
+    </div>
+    <button class="pwa-install-btn" id="pwa-install-btn">Instalar App</button>
+    <button class="pwa-skip-link" id="pwa-skip-link">Ahora no</button>
+  </div>
+</div>
+
+<!-- Push Notification Banner -->
+<div id="push-notify-banner">
+  <div class="push-notify-card">
+    <button class="push-banner-close" id="push-notify-close">✕</button>
+    <span class="push-notify-icon">🔔</span>
+    <div class="push-notify-text">
+      <strong>No te pierdas beneficios exclusivos!</strong>
+      Activa las notificaciones para recibir promociones, bonos y resultados de sorteos al instante
+    </div>
+    <button class="push-notify-btn" id="push-notify-enable">Activar Notificaciones</button>
+    <button class="push-notify-skip" id="push-notify-skip">Ahora no</button>
+  </div>
+</div>
+
+<!-- Popup Overlay -->
+<div id="popup-overlay">
+  <div class="popup-card">
+    <button class="popup-close" id="popup-close">✕</button>
+    <img class="popup-image" id="popup-image" src="" alt="" style="display:none">
+    <div class="popup-title" id="popup-title"></div>
+    <div class="popup-body" id="popup-body"></div>
+    <a class="popup-btn" id="popup-btn" href="#" style="display:none" target="_blank">Ver más</a>
+  </div>
+</div>
+
+<!-- Socket.IO CDN -->
+<script src="https://cdn.socket.io/4.8.0/socket.io.min.js"></script>
+
+<script>
+(function() {
+  'use strict';
+
+  // ============================================
+  // CONFIG & STATE
+  // ============================================
+  const STORAGE_KEYS = {
+    chatId: 'c463_widget_chatId',
+    visitor: 'c463_widget_visitor',
+  };
+
+  // In embed mode, casino-widget.js sets __casino463_serverUrl
+  const API_BASE = window.__casino463_serverUrl || (function() {
+    // When embedded in an iframe, use parent origin; standalone uses own origin
+    try {
+      if (window.location.origin && window.location.origin !== 'null') {
+        return window.location.origin;
+      }
+    } catch (e) {}
+    return '';
+  })();
+
+  let state = {
+    open: false,
+    chatId: null,
+    visitorName: '',
+    casinoUsername: '',
+    clientId: null,
+    socket: null,
+    connected: false,
+    resolved: false,
+    unread: 0,
+    typingTimeout: null,
+    quickActionsVisible: true,
+    buttonOptions: null,
+    chatState: null, // current automation flow state
+    activeEvent: null,
+    eventJoined: false,
+    eventTimerInterval: null,
+  };
+
+  // Load button options from server
+  async function loadButtonOptions() {
+    try {
+      var resp = await fetch(API_BASE + '/api/admin/options');
+      if (resp.ok) state.buttonOptions = await resp.json();
+    } catch(e) {}
+  }
+  loadButtonOptions();
+
+  // ============================================
+  // DOM REFERENCES
+  // ============================================
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => document.querySelectorAll(sel);
+
+  const els = {
+    toggle: $('#widget-toggle'),
+    badge: $('#unread-badge'),
+    container: $('#chat-container'),
+    prechatForm: $('#prechat-form'),
+    chatArea: $('#chat-area'),
+    messagesContainer: $('#messages-container'),
+    typingIndicator: $('#typing-indicator'),
+    quickActions: $('#quick-actions'),
+    inputArea: $('#input-area'),
+    messageInput: $('#message-input'),
+    sendBtn: $('#send-btn'),
+    btnMinimize: $('#btn-minimize'),
+    btnClose: $('#btn-close'),
+    statusDot: $('#status-dot'),
+    statusText: $('#status-text'),
+    headerTitle: $('.chat-header-title'),
+    resolvedBanner: $('#resolved-banner'),
+    btnNewChat: $('#btn-new-chat'),
+    btnEntraAqui: $('#btn-entra-aqui'),
+    uploadBtn: $('#upload-btn'),
+    fileInput: $('#file-input'),
+  };
+
+  // ============================================
+  // SOUND (Web Audio API - subtle notification)
+  // ============================================
+  let audioCtx = null;
+
+  function playNotificationSound() {
+    try {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+      osc.frequency.setValueAtTime(1046, audioCtx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+      osc.start(audioCtx.currentTime);
+      osc.stop(audioCtx.currentTime + 0.3);
+    } catch (e) {
+      // Audio not available, silently ignore
+    }
+  }
+
+  // ============================================
+  // LOCALSTORAGE HELPERS
+  // ============================================
+  function loadState() {
+    try {
+      const chatId = localStorage.getItem(STORAGE_KEYS.chatId);
+      const visitorData = localStorage.getItem(STORAGE_KEYS.visitor);
+      if (chatId) state.chatId = chatId;
+      if (visitorData) {
+        const v = JSON.parse(visitorData);
+        state.visitorName = v.name || '';
+        state.casinoUsername = v.casinoUsername || '';
+        state.clientId = v.clientId || null;
+      }
+    } catch (e) {}
+  }
+
+  function saveState() {
+    try {
+      if (state.chatId) {
+        localStorage.setItem(STORAGE_KEYS.chatId, state.chatId);
+      }
+      localStorage.setItem(STORAGE_KEYS.visitor, JSON.stringify({
+        name: state.visitorName,
+        casinoUsername: state.casinoUsername,
+        clientId: state.clientId,
+      }));
+    } catch (e) {}
+  }
+
+  function clearState() {
+    try {
+      localStorage.removeItem(STORAGE_KEYS.chatId);
+      localStorage.removeItem(STORAGE_KEYS.visitor);
+    } catch (e) {}
+    state.chatId = null;
+    state.visitorName = '';
+    state.casinoUsername = '';
+    state.clientId = null;
+    state.resolved = false;
+    state.unread = 0;
+    state.chatState = null;
+  }
+
+  // ============================================
+  // PARENT COMMUNICATION
+  // ============================================
+  function notifyParent(open) {
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({
+          source: 'casino463-widget',
+          type: 'widget:toggle',
+          open: open,
+        }, '*');
+      }
+    } catch (e) {}
+  }
+
+  // Helper to get bg-iframe (supports embed mode with different ID)
+  function getBgIframe() {
+    var id = window.__casino463_bgIframeId || 'bg-iframe';
+    return document.getElementById(id);
+  }
+
+  // Navigate the bg-iframe (local or parent's depending on embed mode)
+  function navigateBgIframe(url) {
+    var bgIframe = getBgIframe();
+    // If we have a bg-iframe visible, use it directly
+    if (bgIframe && bgIframe.style.display !== 'none') {
+      bgIframe.src = url;
+    }
+    // In old iframe embed mode, tell parent to navigate its bg-iframe
+    if (window.__embedMode) {
+      try {
+        window.parent.postMessage({
+          source: 'casino463-widget',
+          type: 'casino463-navigate',
+          url: url
+        }, '*');
+      } catch(e) {}
+    }
+  }
+
+  // ============================================
+  // UI HELPERS
+  // ============================================
+  function toggleWidget(forceOpen) {
+    const shouldOpen = forceOpen !== undefined ? forceOpen : !state.open;
+    state.open = shouldOpen;
+
+    if (shouldOpen) {
+      els.container.classList.add('open');
+      els.toggle.classList.add('open');
+      hidePromo();
+      // Reset unread when opening
+      state.unread = 0;
+      updateBadge();
+      // Focus message input if chat is active
+      setTimeout(() => {
+        if (els.prechatForm.classList.contains('hidden') && !state.resolved) {
+          els.messageInput.focus();
+        }
+      }, 350);
+    } else {
+      els.container.classList.remove('open');
+      els.toggle.classList.remove('open');
+    }
+
+    notifyParent(shouldOpen);
+  }
+
+  function updateBadge() {
+    if (state.unread > 0 && !state.open) {
+      els.badge.textContent = state.unread > 9 ? '9+' : state.unread;
+      els.badge.classList.add('show');
+    } else {
+      els.badge.classList.remove('show');
+    }
+  }
+
+  function showChatArea() {
+    els.prechatForm.classList.add('hidden');
+    els.chatArea.classList.add('active');
+    if (els.headerTitle) els.headerTitle.textContent = 'Casino 463';
+  }
+
+  function showPrechatForm() {
+    els.prechatForm.classList.remove('hidden');
+    els.chatArea.classList.remove('active');
+    if (els.headerTitle) els.headerTitle.textContent = 'Identificación';
+  }
+
+  function formatTime(isoString) {
+    try {
+      const d = new Date(isoString);
+      const h = d.getHours().toString().padStart(2, '0');
+      const m = d.getMinutes().toString().padStart(2, '0');
+      return h + ':' + m;
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // Enrich bank data (CBU/ALIAS) with copy buttons
+  function enrichBankData(escapedText) {
+    return escapedText.replace(/(CBU|ALIAS):\s*(.+)/g, function(match, label, value) {
+      var trimmedValue = value.trim();
+      if (!trimmedValue) return match;
+      return '<span class="copyable-data">' +
+        '<span class="copy-label">' + label + ':</span>' +
+        '<span class="copy-value">' + trimmedValue + '</span>' +
+        '<button class="copy-btn" data-copy="' + trimmedValue + '" title="Copiar ' + label + '">📋 Copiar ' + label + '</button>' +
+        '</span>';
+    });
+  }
+
+  function addMessageToUI(msg) {
+    const row = document.createElement('div');
+    const senderType = msg.sender || 'bot';
+    row.className = 'message-row ' + senderType;
+    row.setAttribute('data-id', msg.id || '');
+
+    // Check if message already exists (dedup)
+    if (msg.id && els.messagesContainer.querySelector('[data-id="' + msg.id + '"]')) {
+      return;
+    }
+
+    let avatarHtml = '';
+    if (senderType !== 'visitor' && senderType !== 'system') {
+      avatarHtml = '<div class="message-avatar"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L8.5 8.5 2 12l6.5 3.5L12 22l3.5-6.5L22 12l-6.5-3.5L12 2z" fill="#fff"/></svg></div>';
+    }
+
+    let senderLabel = '';
+    if (senderType === 'agent' || senderType === 'bot') {
+      senderLabel = '<div class="message-sender">' + escapeHtml(msg.senderName || 'Casino 463') + '</div>';
+    }
+
+    const timeStr = formatTime(msg.timestamp || new Date().toISOString());
+
+    // Determine bubble content (image vs text)
+    var isImage = msg.type === 'image';
+    var bubbleContent = '';
+    var bubbleClass = 'message-bubble';
+    if (isImage) {
+      var imgSrc = msg.text || '';
+      // If relative path, prepend API_BASE
+      if (imgSrc.startsWith('/')) imgSrc = API_BASE + imgSrc;
+      // If base64 data URL, use directly
+      bubbleContent = '<img src="' + escapeHtml(imgSrc) + '" alt="Comprobante" onclick="window.open(this.src)" />';
+      bubbleClass += ' image-bubble';
+    } else {
+      bubbleContent = escapeHtml(msg.text);
+      // Enrich CBU/ALIAS data with copy buttons for bot messages
+      if (senderType === 'bot' || senderType === 'agent') {
+        bubbleContent = enrichBankData(bubbleContent);
+      }
+    }
+
+    if (senderType === 'system') {
+      row.innerHTML =
+        '<div class="message-content" style="max-width:100%">' +
+          '<div class="message-bubble">' + escapeHtml(msg.text) + '</div>' +
+        '</div>';
+    } else {
+      row.innerHTML =
+        avatarHtml +
+        '<div class="message-content">' +
+          senderLabel +
+          '<div class="' + bubbleClass + '">' + bubbleContent + '</div>' +
+          '<div class="message-time">' + timeStr + '</div>' +
+        '</div>';
+    }
+
+    els.messagesContainer.appendChild(row);
+    scrollToBottom();
+  }
+
+  function scrollToBottom() {
+    requestAnimationFrame(() => {
+      els.messagesContainer.scrollTop = els.messagesContainer.scrollHeight;
+      // Double scroll to handle layout shifts from buttons appearing
+      setTimeout(() => {
+        els.messagesContainer.scrollTop = els.messagesContainer.scrollHeight;
+      }, 150);
+    });
+  }
+
+  function showTyping(show) {
+    if (show) {
+      els.typingIndicator.classList.add('show');
+    } else {
+      els.typingIndicator.classList.remove('show');
+    }
+    scrollToBottom();
+  }
+
+  function showResolved() {
+    state.resolved = true;
+    els.inputArea.style.display = 'none';
+    els.quickActions.style.display = 'none';
+    els.resolvedBanner.style.display = 'block';
+    addMessageToUI({
+      sender: 'system',
+      text: 'Chat finalizado. Gracias por contactarnos.',
+      timestamp: new Date().toISOString(),
+      id: 'resolved-' + Date.now(),
+    });
+  }
+
+  function hideResolved() {
+    state.resolved = false;
+    els.inputArea.style.display = 'flex';
+    els.quickActions.style.display = '';
+    els.resolvedBanner.style.display = 'none';
+  }
+
+  // ============================================
+  // SOCKET.IO CONNECTION
+  // ============================================
+  function connectSocket() {
+    if (state.socket && state.socket.connected) return;
+
+    const socketUrl = API_BASE || window.location.origin;
+
+    state.socket = io(socketUrl, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
+      timeout: 10000,
+    });
+
+    state.socket.on('connect', () => {
+      state.connected = true;
+      els.statusDot.classList.remove('offline');
+      els.statusText.textContent = 'En linea';
+      console.log('[WIDGET] ✅ Socket connected! id:', state.socket.id, 'chatId:', state.chatId, 'clientId:', state.clientId);
+
+      if (state.chatId) {
+        state.socket.emit('visitor:join', state.chatId);
+        console.log('[WIDGET] Joined chat room:', state.chatId);
+      }
+      if (state.clientId) {
+        state.socket.emit('widget:identify', { clientId: state.clientId, chatId: state.chatId });
+        console.log('[WIDGET] Identified as client:', state.clientId);
+      }
+
+      // Always check for active events on connect/reconnect
+      checkActiveEvent();
+    });
+
+    state.socket.on('disconnect', () => {
+      state.connected = false;
+      els.statusDot.classList.add('offline');
+      els.statusText.textContent = 'Reconectando...';
+    });
+
+    state.socket.on('reconnect', () => {
+      state.connected = true;
+      els.statusDot.classList.remove('offline');
+      els.statusText.textContent = 'En linea';
+      if (state.chatId) {
+        state.socket.emit('visitor:join', state.chatId);
+      }
+      // Re-check active events on reconnect
+      checkActiveEvent();
+    });
+
+    state.socket.on('message:new', (msg) => {
+      if (!msg || msg.chatId !== state.chatId) return;
+      // Only add messages from agents/bot/system (visitor messages added optimistically)
+      if (msg.sender !== 'visitor') {
+        addMessageToUI(msg);
+        showTyping(false);
+
+        // Play sound and increment unread if widget is closed
+        if (!state.open) {
+          state.unread++;
+          updateBadge();
+        }
+        playNotificationSound();
+      }
+    });
+
+    state.socket.on('typing:start', (data) => {
+      if (data && data.sender !== 'visitor') {
+        showTyping(true);
+      }
+    });
+
+    state.socket.on('typing:stop', (data) => {
+      if (data && data.sender !== 'visitor') {
+        showTyping(false);
+      }
+    });
+
+    state.socket.on('chat:resolved', () => {
+      showResolved();
+    });
+
+    // Automation: dynamic buttons from server
+    state.socket.on('chat:show-buttons', (data) => {
+      if (!data || data.chatId !== state.chatId) return;
+      if (data.showOptions) {
+        showMainOptions();
+      } else if (data.buttons && data.buttons.length > 0) {
+        showDynamicButtons(data.buttons);
+      }
+    });
+
+    // Automation: state change notification
+    state.socket.on('chat:state-changed', (data) => {
+      if (!data || data.chatId !== state.chatId) return;
+      // Update buttons based on new state
+      showButtonsForState(data.state);
+    });
+
+    // Admin popup overlay
+    state.socket.on('popup:show', (data) => {
+      showPopupOverlay(data);
+    });
+
+    // Event system listeners
+    state.socket.on('event:started', (data) => {
+      state.activeEvent = data;
+      state.eventJoined = false;
+      showEventBanner();
+      startEventTimer();
+      // Refresh chat buttons so PARTICIPAR appears in the menu
+      if (state.chatState === 'options' || state.chatState === 'welcome' || state.chatState === 'idle' || !state.chatState) {
+        showMainOptions();
+      }
+      // Show announcement popup
+      showPopupOverlay({
+        title: '🎰 ¡NUEVO EVENTO!',
+        body: data.description || ('Cargá $' + Number(data.minDeposit).toLocaleString() + ' y participá por ' + data.prizeDescription),
+        imageUrl: data.imageUrl || '',
+        buttonText: '¡PARTICIPAR!',
+        buttonAction: 'event_join'
+      });
+    });
+
+    state.socket.on('event:ended', (data) => {
+      hideEventBanner();
+      state.activeEvent = null;
+      state.eventJoined = false;
+      if (state.eventTimerInterval) {
+        clearInterval(state.eventTimerInterval);
+        state.eventTimerInterval = null;
+      }
+    });
+
+    state.socket.on('event:winner', (data) => {
+      showWinnerPopup(data);
+    });
+
+    state.socket.on('event:prize-claimed', (data) => {
+      addBotMessage('🏆 ¡Tus ' + Number(data.prizeAmount).toLocaleString() + ' fichas de premio fueron acreditadas en tu cuenta!');
+    });
+
+    // ── FICHAS CARGADAS popup ──
+    state.socket.on('payment:approved', (data) => {
+      console.log('[WIDGET] 🎰 payment:approved received:', JSON.stringify(data));
+      console.log('[WIDGET] state.chatId:', state.chatId, 'state.clientId:', state.clientId);
+      if (!data) return;
+      // Only show for events related to this chat/client
+      if (data.chatId && state.chatId && data.chatId !== state.chatId) {
+        console.log('[WIDGET] chatId mismatch, skipping');
+        return;
+      }
+      if (data.type === 'deposit' || !data.type) {
+        console.log('[WIDGET] 🎰 Showing deposit popup!');
+        showSpecialPopup({
+          type: 'deposit',
+          amount: data.amount,
+          message: '¡Tus fichas ya están disponibles!\nAndá a jugar y que la suerte esté de tu lado. 🍀',
+        });
+        playNotificationSound();
+      }
+    });
+
+    // ── RETIRO / PREMIO PAGADO popup ──
+    state.socket.on('withdrawal:approved', (data) => {
+      console.log('[WIDGET] 💸 withdrawal:approved received:', JSON.stringify(data));
+      if (!data) return;
+      if (data.chatId && state.chatId && data.chatId !== state.chatId) {
+        console.log('[WIDGET] chatId mismatch, skipping');
+        return;
+      }
+      console.log('[WIDGET] 💸 Showing withdrawal popup!');
+      showSpecialPopup({
+        type: 'withdrawal',
+        amount: data.amount,
+        message: '¡Revisá tu cuenta bancaria!\nYa enviamos la transferencia. 🏦',
+      });
+      playNotificationSound();
+    });
+  }
+
+  // ============================================
+  // API CALLS
+  // ============================================
+  async function loginWidget(username, password) {
+    const resp = await fetch(API_BASE + '/api/chat/widget/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+
+    const data = await resp.json();
+    if (!resp.ok || !data.success) {
+      throw new Error(data.error || 'Error de autenticación');
+    }
+    return data;
+  }
+
+  async function loadMessages(chatId) {
+    try {
+      const resp = await fetch(API_BASE + '/api/chat/chats/' + chatId + '/messages?limit=50');
+      if (!resp.ok) return [];
+      return await resp.json();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  async function verifyChat(chatId) {
+    try {
+      const resp = await fetch(API_BASE + '/api/chat/chats/' + chatId);
+      if (!resp.ok) return null;
+      return await resp.json();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function sendMessageAPI(chatId, text, visitorName) {
+    try {
+      await fetch(API_BASE + '/api/chat/widget/message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatId, text, visitorName }),
+      });
+    } catch (e) {
+      // Fallback silently fails, socket is primary
+    }
+  }
+
+  async function uploadImage(base64Data) {
+    if (!state.chatId || state.resolved) return;
+
+    // Show optimistic image preview
+    var tempId = 'upload-' + Date.now();
+    addMessageToUI({
+      id: tempId,
+      chatId: state.chatId,
+      sender: 'visitor',
+      senderName: state.visitorName,
+      text: base64Data,
+      type: 'image',
+      timestamp: new Date().toISOString(),
+    });
+
+    // Hide quick actions
+    els.quickActions.style.display = 'none';
+    state.quickActionsVisible = false;
+
+    try {
+      var senderName = state.casinoUsername || state.visitorName || 'Visitante';
+      var resp = await fetch(API_BASE + '/api/chat/widget/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chatId: state.chatId,
+          image: base64Data,
+          visitorName: senderName,
+        }),
+      });
+
+      if (!resp.ok) {
+        var err = await resp.json();
+        addMessageToUI({
+          id: 'err-' + Date.now(),
+          sender: 'system',
+          text: err.error || 'Error al subir imagen',
+          timestamp: new Date().toISOString(),
+        });
+      }
+    } catch (e) {
+      addMessageToUI({
+        id: 'err-' + Date.now(),
+        sender: 'system',
+        text: 'Error de conexión al subir imagen',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  // ============================================
+  // SEND MESSAGE
+  // ============================================
+  function sendMessage(text) {
+    if (!text || !text.trim() || !state.chatId || state.resolved) return;
+    const trimmed = text.trim();
+
+    // Add message to UI optimistically
+    const tempId = 'temp-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
+    addMessageToUI({
+      id: tempId,
+      chatId: state.chatId,
+      sender: 'visitor',
+      senderName: state.visitorName,
+      text: trimmed,
+      type: 'text',
+      timestamp: new Date().toISOString(),
+    });
+
+    // Hide quick actions immediately (they'll be replaced by automation response)
+    els.quickActions.style.display = 'none';
+    state.quickActionsVisible = false;
+
+    // Send via HTTP (automation processing happens server-side)
+    const senderName = state.casinoUsername || state.visitorName || 'Visitante';
+    sendMessageAPI(state.chatId, trimmed, senderName);
+
+    // Clear input
+    els.messageInput.value = '';
+    els.messageInput.style.height = 'auto';
+  }
+
+  // ============================================
+  // DYNAMIC BUTTONS
+  // ============================================
+  function showDynamicButtons(buttons) {
+    els.quickActions.innerHTML = '';
+    if (!buttons || buttons.length === 0) {
+      els.quickActions.style.display = 'none';
+      state.quickActionsVisible = false;
+      return;
+    }
+    buttons.forEach(function(btn) {
+      var el = document.createElement('button');
+      el.className = 'quick-btn' + (btn.className ? ' ' + btn.className : '');
+      el.setAttribute('data-text', btn.value);
+      if (btn.link) {
+        el.setAttribute('data-link', btn.link);
+      }
+      el.textContent = btn.text;
+      els.quickActions.appendChild(el);
+    });
+    els.quickActions.style.display = '';
+    state.quickActionsVisible = true;
+    scrollToBottom();
+  }
+
+  function showMainOptions() {
+    var opts = state.buttonOptions || {};
+    var eventButtons = [];
+
+    // Inject event PARTICIPAR button if event is active and not yet joined
+    if (state.activeEvent && !state.eventJoined) {
+      eventButtons.push({
+        text: '🎰 ¡PARTICIPAR DEL EVENTO!',
+        value: '__event_join__',
+        className: 'event-btn-special'
+      });
+    }
+
+    var allButtons = [
+      { text: '💰 Cargar', value: 'Depositar', key: 'carga' },
+      { text: '💸 Retirar', value: 'Retirar', key: 'retiro' },
+      { text: '🤝 Soporte', value: 'Soporte', key: 'soporte' },
+      { text: '🎁 Cuponera', value: 'Bonos', key: 'cuponera' },
+    ];
+    // Filter disabled buttons and mark links
+    var buttons = allButtons.filter(function(b) {
+      var cfg = opts[b.key];
+      if (cfg && cfg.enabled === false) return false;
+      if (cfg && cfg.type === 'link' && cfg.link) b.link = cfg.link;
+      return true;
+    });
+    buttons = eventButtons.concat(buttons);
+    showDynamicButtons(buttons);
+    // 2x2 grid for 4 buttons, single-row for less
+    if (buttons.length <= 2) {
+      els.quickActions.classList.add('single-row');
+    } else {
+      els.quickActions.classList.remove('single-row');
+    }
+  }
+
+  // ============================================
+  // EMIT TYPING
+  // ============================================
+  function emitTyping() {
+    if (state.socket && state.socket.connected && state.chatId) {
+      state.socket.emit('visitor:typing', { chatId: state.chatId });
+    }
+  }
+
+  // ============================================
+  // START CHAT (no longer uses form — login is via iframe)
+  // ============================================
+  // startChat() removed — login now happens through 463.life iframe
+  // The postMessage listener handles auto-login when 463.life sends {tipo: "login"}
+
+  // ============================================
+  // RESUME EXISTING CHAT
+  // ============================================
+  async function resumeChat() {
+    if (!state.chatId) return false;
+
+    // Verify chat still exists
+    const chat = await verifyChat(state.chatId);
+    if (!chat) {
+      clearState();
+      return false;
+    }
+
+    // ── Resume 463.life session in background ──
+    try {
+      var savedUser = localStorage.getItem('c463_casino_user');
+      var savedPass = localStorage.getItem('c463_casino_pass');
+      if (savedUser && savedPass) {
+        navigateBgIframe('https://463.life/?u=' + encodeURIComponent(savedUser) + '&p=' + encodeURIComponent(savedPass));
+        console.log('[WIDGET] 463.life session resumed for:', savedUser);
+      }
+    } catch(e) {}
+
+    // Check if resolved
+    if (chat.status === 'resolved') {
+      state.resolved = true;
+    }
+
+    // Show chat area
+    showChatArea();
+
+    // Load existing messages
+    const messages = await loadMessages(state.chatId);
+    messages.forEach((msg) => addMessageToUI(msg));
+
+    // Connect socket
+    connectSocket();
+
+    if (state.resolved) {
+      showResolved();
+    } else {
+      hideResolved();
+      // Show appropriate buttons based on chat state
+      showButtonsForState(chat.state || 'options');
+    }
+
+    return true;
+  }
+
+  // Show the upload comprobante button in the quick-actions area
+  function showUploadComprobanteButton() {
+    els.quickActions.innerHTML = '';
+    var btn = document.createElement('button');
+    btn.className = 'upload-comprobante-btn';
+    btn.id = 'btn-subir-comprobante';
+    btn.innerHTML = '📸 Subir Comprobante';
+    btn.addEventListener('click', function() {
+      els.fileInput.click();
+    });
+    els.quickActions.appendChild(btn);
+    els.quickActions.style.display = 'flex';
+    state.quickActionsVisible = true;
+    scrollToBottom();
+  }
+
+  // Show buttons based on current chat flow state
+  function showButtonsForState(chatState) {
+    state.chatState = chatState; // track current state
+    var backBtn = { text: '↩ Volver', value: '__volver__', className: 'back-btn' };
+    switch (chatState) {
+      case 'options':
+      case 'welcome':
+      case 'idle':
+        showMainOptions();
+        break;
+      case 'carga_cuenta':
+        showDynamicButtons([
+          { text: '📋 CBU', value: 'CBU' },
+          { text: '📋 ALIAS', value: 'ALIAS' },
+          backBtn,
+        ]);
+        // flex row: CBU | ALIAS | Volver — all side by side
+        els.quickActions.classList.add('single-row');
+        els.quickActions.style.flexWrap = 'nowrap';
+        break;
+      case 'carga_comprobante':
+        showUploadComprobanteButton();
+        // Add back button next to upload button
+        appendBackButton();
+        els.quickActions.style.display = 'flex';
+        els.quickActions.style.gap = '6px';
+        break;
+      case 'retiro_datos':
+        showDynamicButtons([backBtn]);
+        els.quickActions.classList.add('single-row');
+        break;
+      case 'soporte':
+        showDynamicButtons([backBtn]);
+        els.quickActions.classList.add('single-row');
+        break;
+      case 'cuponera':
+        showDynamicButtons([backBtn]);
+        els.quickActions.classList.add('single-row');
+        break;
+      case 'carga_verificando':
+      case 'retiro_procesando':
+        // During processing, show back button but with a "cancel" feel
+        showDynamicButtons([backBtn]);
+        els.quickActions.classList.add('single-row');
+        break;
+      default:
+        // Unknown states - show back button to go home
+        showDynamicButtons([backBtn]);
+        els.quickActions.classList.add('single-row');
+        break;
+    }
+  }
+
+  // Append a back button to the current quick-actions (used after upload button)
+  function appendBackButton() {
+    var btn = document.createElement('button');
+    btn.className = 'quick-btn back-btn';
+    btn.setAttribute('data-text', '__volver__');
+    btn.textContent = '↩ Volver';
+    btn.style.minWidth = 'auto';
+    btn.style.flex = '0 0 auto';
+    els.quickActions.appendChild(btn);
+  }
+
+  // ============================================
+  // NEW CHAT (after resolved)
+  // ============================================
+  function newChat() {
+    // Disconnect socket
+    if (state.socket) {
+      state.socket.disconnect();
+      state.socket = null;
+    }
+
+    // Clear state
+    clearState();
+
+    // Clear messages
+    els.messagesContainer.innerHTML = '';
+
+    // Reset UI
+    hideResolved();
+    showPrechatForm();
+    state.quickActionsVisible = true;
+    els.quickActions.style.display = '';
+  }
+
+  // ============================================
+  // AUTO-RESIZE TEXTAREA
+  // ============================================
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+  }
+
+  // ============================================
+  // EVENT LISTENERS
+  // ============================================
+
+  // Toggle widget open/close
+  els.toggle.addEventListener('click', () => toggleWidget());
+
+  // Minimize
+  els.btnMinimize.addEventListener('click', () => toggleWidget(false));
+
+  // Close / End Chat
+  els.btnClose.addEventListener('click', () => {
+    toggleWidget(false);
+  });
+
+  // "Entra aquí" button → navigate iframe to login page & close widget
+  els.btnEntraAqui.addEventListener('click', function() {
+    navigateBgIframe('https://463.life/auth');
+    console.log('[WIDGET] Navigating iframe to 463.life/auth');
+    // Close the widget panel so user interacts with the iframe directly
+    toggleWidget(false);
+  });
+
+  // Send button
+  els.sendBtn.addEventListener('click', () => {
+    sendMessage(els.messageInput.value);
+  });
+
+  // Message input: Enter to send, Shift+Enter for newline
+  els.messageInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(els.messageInput.value);
+    }
+  });
+
+  // Message input: auto-resize and typing indicator
+  els.messageInput.addEventListener('input', () => {
+    autoResize(els.messageInput);
+    emitTyping();
+  });
+
+  // Quick action buttons - event delegation handles all (static + dynamic)
+  els.quickActions.addEventListener('click', (e) => {
+    const btn = e.target.closest('.quick-btn');
+    if (btn) {
+      const text = btn.getAttribute('data-text');
+      // Handle event join
+      if (text === '__event_join__') {
+        joinEvent();
+        return;
+      }
+      const link = btn.getAttribute('data-link');
+      if (link) {
+        // Open link in new tab
+        window.open(link, '_blank');
+        return;
+      }
+      if (text) sendMessage(text);
+    }
+  });
+
+  // Copy button - event delegation on messages container
+  els.messagesContainer.addEventListener('click', (e) => {
+    const copyBtn = e.target.closest('.copy-btn');
+    if (!copyBtn) return;
+
+    const value = copyBtn.getAttribute('data-copy');
+    if (!value) return;
+
+    const originalText = copyBtn.textContent;
+    const onCopied = () => {
+      copyBtn.textContent = '✅ Copiado';
+      copyBtn.classList.add('copied');
+      setTimeout(() => {
+        copyBtn.textContent = originalText;
+        copyBtn.classList.remove('copied');
+      }, 2000);
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(value).then(onCopied).catch(() => {
+        // Fallback
+        const ta = document.createElement('textarea');
+        ta.value = value;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        onCopied();
+      });
+    } else {
+      // Fallback for older browsers
+      const ta = document.createElement('textarea');
+      ta.value = value;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      onCopied();
+    }
+  });
+
+  // Upload button - opens file picker
+  els.uploadBtn.addEventListener('click', () => {
+    els.fileInput.click();
+  });
+
+  // File input - handle image selection
+  els.fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      addMessageToUI({
+        id: 'err-' + Date.now(),
+        sender: 'system',
+        text: 'Solo se permiten archivos de imagen (JPG, PNG, GIF)',
+        timestamp: new Date().toISOString(),
+      });
+      els.fileInput.value = '';
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      addMessageToUI({
+        id: 'err-' + Date.now(),
+        sender: 'system',
+        text: 'La imagen es muy grande. Máximo 5MB.',
+        timestamp: new Date().toISOString(),
+      });
+      els.fileInput.value = '';
+      return;
+    }
+
+    // Read as base64 and upload
+    const reader = new FileReader();
+    reader.onload = function() {
+      uploadImage(reader.result);
+      els.fileInput.value = ''; // Reset file input
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // New chat button
+  els.btnNewChat.addEventListener('click', newChat);
+
+  // ============================================
+  // PROMO BUBBLE SYSTEM
+  // ============================================
+  const promoMessages = [
+    { icon: '💰', text: '<span class="promo-text-gold">Cargá saldo</span> y empezá a jugar ahora!' },
+    { icon: '🎁', text: 'Premios y <span class="promo-text-gold">bonos exclusivos</span> te esperan!' },
+    { icon: '🏆', text: 'Llevate el <span class="promo-text-gold">200% de bienvenida</span> en tu primer depósito' },
+    { icon: '⚡', text: 'Depósitos <span class="promo-text-gold">al instante</span>, retiros en minutos' },
+    { icon: '🎰', text: 'Jugá en las mejores <span class="promo-text-gold">slots y ruletas</span>' },
+    { icon: '🔥', text: 'Hoy hay <span class="promo-text-gold">promociones especiales</span>!' },
+    { icon: '💎', text: 'Necesitás ayuda? <span class="promo-text-gold">Estamos online</span>' },
+    { icon: '🍀', text: '<span class="promo-text-gold">Tu suerte</span> empieza acá, hablanos!' },
+  ];
+
+  let promoIndex = 0;
+  let promoInterval = null;
+  let promoTimeout = null;
+  const promoBubble = document.getElementById('promo-bubble');
+  const promoContent = document.getElementById('promo-content');
+
+  function showPromo() {
+    if (state.open) return; // Don't show if chat is open
+    const msg = promoMessages[promoIndex % promoMessages.length];
+    promoContent.innerHTML = '<span class="promo-icon">' + msg.icon + '</span> ' + msg.text;
+    promoBubble.classList.add('show');
+    promoIndex++;
+
+    // Auto-hide after 6 seconds
+    if (promoTimeout) clearTimeout(promoTimeout);
+    promoTimeout = setTimeout(() => {
+      promoBubble.classList.remove('show');
+    }, 6000);
+  }
+
+  function hidePromo() {
+    promoBubble.classList.remove('show');
+    if (promoTimeout) clearTimeout(promoTimeout);
+  }
+
+  function startPromoLoop() {
+    // Show first promo after 5 seconds
+    setTimeout(() => {
+      showPromo();
+      // Then every 30 seconds
+      promoInterval = setInterval(showPromo, 30000);
+    }, 5000);
+  }
+
+  // Click promo bubble → open chat
+  promoBubble.addEventListener('click', (e) => {
+    if (e.target.classList.contains('promo-close')) return;
+    hidePromo();
+    toggleWidget(true);
+  });
+
+  // Expose for the close button onclick
+  window.closePromo = hidePromo;
+
+  // ============================================
+  // PWA: SERVICE WORKER + PUSH + INSTALL
+  // ============================================
+  var deferredInstallPrompt = null;
+  var pushSubscriptionActive = false;
+
+  // Register Service Worker
+  async function registerServiceWorker() {
+    if (!('serviceWorker' in navigator)) return null;
+    try {
+      var reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+      console.log('[SW] Registered:', reg.scope);
+      return reg;
+    } catch (err) {
+      console.error('[SW] Registration failed:', err);
+      return null;
+    }
+  }
+
+  // Helper: convert VAPID key
+  function urlBase64ToUint8Array(base64String) {
+    var padding = '='.repeat((4 - base64String.length % 4) % 4);
+    var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    var rawData = atob(base64);
+    var outputArray = new Uint8Array(rawData.length);
+    for (var i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  }
+
+  // Subscribe to push notifications
+  async function subscribeToPush() {
+    if (pushSubscriptionActive) return;
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+    try {
+      // Get VAPID public key from server
+      var resp = await fetch(API_BASE + '/api/notifications/vapid-public-key');
+      if (!resp.ok) return;
+      var data = await resp.json();
+      if (!data.publicKey) return;
+
+      var reg = await navigator.serviceWorker.ready;
+
+      // Check existing subscription
+      var existing = await reg.pushManager.getSubscription();
+      if (existing) {
+        // Already subscribed, just register with server
+        await registerSubscription(existing);
+        pushSubscriptionActive = true;
+        return;
+      }
+
+      // Request notification permission
+      var permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        console.log('[Push] Permission denied');
+        return;
+      }
+
+      // Subscribe
+      var sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(data.publicKey),
+      });
+
+      // Register with server
+      await registerSubscription(sub);
+      pushSubscriptionActive = true;
+      console.log('[Push] Subscribed successfully');
+    } catch (err) {
+      console.error('[Push] Subscribe error:', err);
+    }
+  }
+
+  // Register subscription with backend
+  async function registerSubscription(sub) {
+    try {
+      await fetch(API_BASE + '/api/notifications/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subscription: sub.toJSON(),
+          clientId: state.clientId || null,
+          chatId: state.chatId || null,
+        }),
+      });
+    } catch (err) {
+      console.error('[Push] Register error:', err);
+    }
+  }
+
+  // PWA Install Banner
+  var installBanner = document.getElementById('pwa-install-banner');
+  var installBtn = document.getElementById('pwa-install-btn');
+  var bannerClose = document.getElementById('pwa-banner-close');
+  var skipLink = document.getElementById('pwa-skip-link');
+  var INSTALL_DISMISSED_KEY = 'c463_pwa_dismissed_ts';
+  var installShownThisSession = false;
+
+  var INSTALL_COOLDOWN_MS = 6 * 60 * 60 * 1000; // 6 horas
+
+  // Ocultar por 6 horas después de cerrar
+  function wasInstallDismissedRecently() {
+    try {
+      var ts = localStorage.getItem(INSTALL_DISMISSED_KEY);
+      if (!ts) return false;
+      return (Date.now() - parseInt(ts)) < INSTALL_COOLDOWN_MS;
+    } catch(e) { return false; }
+  }
+
+  function markInstallDismissed() {
+    try { localStorage.setItem(INSTALL_DISMISSED_KEY, Date.now().toString()); } catch(e) {}
+  }
+
+  function hideInstallBanner() {
+    installBanner.classList.remove('show');
+  }
+
+  function showInstallBannerIfAllowed() {
+    // Ya instalada → nunca mostrar
+    if (window.matchMedia('(display-mode: standalone)').matches) return;
+    if (navigator.standalone) return;
+    // Ya cerró hoy → esperar hasta mañana
+    if (wasInstallDismissedRecently()) return;
+    // Ya se mostró en esta carga → no duplicar
+    if (installShownThisSession) return;
+    installShownThisSession = true;
+    installBanner.classList.add('show');
+  }
+
+  // Capture beforeinstallprompt (Android/Chrome)
+  window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    setTimeout(showInstallBannerIfAllowed, 3000);
+  });
+
+  // "Instalar App"
+  if (installBtn) {
+    installBtn.addEventListener('click', async function() {
+      if (!deferredInstallPrompt) {
+        showIOSInstallInstructions();
+        return;
+      }
+      deferredInstallPrompt.prompt();
+      var result = await deferredInstallPrompt.userChoice;
+      console.log('[PWA] Install result:', result.outcome);
+      deferredInstallPrompt = null;
+      hideInstallBanner();
+      // Si no instaló, mañana le vuelve a salir
+    });
+  }
+
+  // "✕" o "Ahora no" → cerrar por hoy, mañana aparece de nuevo
+  if (bannerClose) {
+    bannerClose.addEventListener('click', function() {
+      markInstallDismissed();
+      hideInstallBanner();
+    });
+  }
+  if (skipLink) {
+    skipLink.addEventListener('click', function() {
+      markInstallDismissed();
+      hideInstallBanner();
+    });
+  }
+  if (installBanner) {
+    installBanner.addEventListener('click', function(e) {
+      if (e.target === installBanner) {
+        markInstallDismissed();
+        hideInstallBanner();
+      }
+    });
+  }
+
+  // Check if already in standalone (PWA) mode
+  function isPWAMode() {
+    return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  }
+
+  // iOS: instrucciones manuales de instalación
+  function showIOSInstallInstructions() {
+    var isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    if (isIOS) {
+      showPopupOverlay({
+        title: 'Instalar Casino 463',
+        body: 'Para instalar la app:\n1. Tocá el botón de compartir (📤)\n2. Seleccioná "Agregar a pantalla de inicio"\n3. Confirmá tocando "Agregar"',
+        buttonText: 'Entendido',
+      });
+    }
+    markInstallDismissed();
+    hideInstallBanner();
+  }
+
+  // iOS: mostrar banner si no está instalada
+  function checkIOSInstallBanner() {
+    var isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    if (isIOS && !isPWAMode()) {
+      setTimeout(showInstallBannerIfAllowed, 5000);
+    }
+  }
+
+  // ============================================
+  // PUSH NOTIFICATION BANNER (show on every login if not subscribed)
+  // ============================================
+  var pushBanner = document.getElementById('push-notify-banner');
+  var pushEnableBtn = document.getElementById('push-notify-enable');
+  var pushCloseBtn = document.getElementById('push-notify-close');
+  var pushSkipBtn = document.getElementById('push-notify-skip');
+  var PUSH_DISMISSED_KEY = 'c463_push_dismissed_ts';
+  var PUSH_DISMISS_COOLDOWN = 2 * 60 * 60 * 1000; // 2 hours cooldown between prompts
+
+  function wasPushDismissedRecently() {
+    try {
+      var ts = localStorage.getItem(PUSH_DISMISSED_KEY);
+      if (!ts) return false;
+      return (Date.now() - parseInt(ts)) < PUSH_DISMISS_COOLDOWN;
+    } catch(e) { return false; }
+  }
+
+  function markPushDismissed() {
+    try { localStorage.setItem(PUSH_DISMISSED_KEY, Date.now().toString()); } catch(e) {}
+  }
+
+  function hidePushBanner() {
+    if (pushBanner) pushBanner.classList.remove('show');
+  }
+
+  // Check if user has push notifications enabled and show banner if not
+  async function checkAndShowPushBanner() {
+    // Don't show if browser doesn't support notifications
+    if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+    // Already subscribed - don't show
+    if (pushSubscriptionActive) return;
+
+    // Already granted permission and has subscription - don't show
+    if (Notification.permission === 'granted') {
+      try {
+        var reg = await navigator.serviceWorker.ready;
+        var existing = await reg.pushManager.getSubscription();
+        if (existing) {
+          pushSubscriptionActive = true;
+          return; // Already has push - no banner needed
+        }
+      } catch(e) {}
+    }
+
+    // Permission was permanently denied - don't show (can't do anything)
+    if (Notification.permission === 'denied') return;
+
+    // Was dismissed recently - wait for cooldown
+    if (wasPushDismissedRecently()) return;
+
+    // Show banner after a 2 second delay (let user settle in first)
+    setTimeout(function() {
+      if (pushBanner) pushBanner.classList.add('show');
+    }, 2000);
+  }
+
+  // "Activar Notificaciones" button
+  if (pushEnableBtn) {
+    pushEnableBtn.addEventListener('click', async function() {
+      hidePushBanner();
+      // Trigger the actual push subscription flow
+      await subscribeToPush();
+      if (pushSubscriptionActive) {
+        console.log('[Push Banner] User enabled notifications!');
+      }
+    });
+  }
+
+  // Close / Skip buttons
+  if (pushCloseBtn) {
+    pushCloseBtn.addEventListener('click', function() {
+      markPushDismissed();
+      hidePushBanner();
+    });
+  }
+  if (pushSkipBtn) {
+    pushSkipBtn.addEventListener('click', function() {
+      markPushDismissed();
+      hidePushBanner();
+    });
+  }
+  if (pushBanner) {
+    pushBanner.addEventListener('click', function(e) {
+      if (e.target === pushBanner) {
+        markPushDismissed();
+        hidePushBanner();
+      }
+    });
+  }
+
+  // ============================================
+  // POPUP OVERLAY (admin-triggered)
+  // ============================================
+  var popupOverlay = document.getElementById('popup-overlay');
+  var popupCloseBtn = document.getElementById('popup-close');
+  var popupImage = document.getElementById('popup-image');
+  var popupTitle = document.getElementById('popup-title');
+  var popupBody = document.getElementById('popup-body');
+  var popupBtn = document.getElementById('popup-btn');
+
+  // ============================================
+  // SPECIAL POPUPS: Fichas Cargadas & Retiro Pagado
+  // ============================================
+  function showSpecialPopup(opts) {
+    // opts: { type: 'deposit'|'withdrawal', amount: number, message: string }
+    var card = document.querySelector('.popup-card');
+    var isDeposit = opts.type === 'deposit';
+
+    // Remove previous special classes
+    card.classList.remove('popup-success', 'popup-payout');
+    card.classList.add(isDeposit ? 'popup-success' : 'popup-payout');
+
+    // Build custom HTML content
+    var icon = isDeposit ? '🎰' : '💸';
+    var title = isDeposit ? '¡FICHAS CARGADAS!' : '¡RETIRO ENVIADO!';
+    var amountFormatted = '$' + Number(opts.amount).toLocaleString('es-AR');
+    var colors = isDeposit
+      ? ['#22c55e','#D4A843','#f59e0b','#22c55e','#F4E4A0','#34d399','#D4A843','#fbbf24']
+      : ['#3b82f6','#60a5fa','#93c5fd','#3b82f6','#818cf8','#60a5fa','#a78bfa','#3b82f6'];
+
+    // Confetti
+    var confettiHtml = '<div class="popup-confetti">';
+    for (var i = 0; i < 8; i++) {
+      var left = 10 + Math.random() * 80;
+      var delay = Math.random() * 0.5;
+      confettiHtml += '<span style="left:' + left + '%;background:' + colors[i] + ';animation-delay:' + delay.toFixed(2) + 's;"></span>';
+    }
+    confettiHtml += '</div>';
+
+    popupImage.style.display = 'none';
+    popupTitle.innerHTML = confettiHtml + '<div class="popup-big-icon">' + icon + '</div>' + title;
+    popupBody.innerHTML = '<div class="popup-amount">' + amountFormatted + '</div>' +
+      '<div class="popup-subtitle">' + (opts.message || '').replace(/\n/g, '<br>') + '</div>';
+    popupBtn.textContent = isDeposit ? '🎮 ¡A JUGAR!' : '👍 ¡Entendido!';
+    popupBtn.style.display = 'inline-block';
+    popupBtn.href = '#';
+    popupBtn.target = '';
+    popupBtn.onclick = function(e) {
+      e.preventDefault();
+      closePopupOverlay();
+      card.classList.remove('popup-success', 'popup-payout');
+      // Show main options after closing
+      showMainOptions();
+    };
+
+    popupOverlay.classList.add('show');
+
+    // Auto-open widget if closed
+    if (!state.open) {
+      toggleWidget(true);
+    }
+  }
+
+  function showPopupOverlay(data) {
+    if (!data || !data.title) return;
+    popupTitle.textContent = data.title;
+    popupBody.textContent = data.body || '';
+
+    if (data.imageUrl) {
+      popupImage.src = data.imageUrl;
+      popupImage.style.display = 'block';
+    } else {
+      popupImage.style.display = 'none';
+    }
+
+    if (data.buttonText) {
+      popupBtn.textContent = data.buttonText;
+      popupBtn.style.display = 'inline-block';
+      popupBtn.href = '#';
+      popupBtn.target = '';
+
+      if (data.buttonAction === 'event_join') {
+        // Join event action
+        popupBtn.onclick = function(e) {
+          e.preventDefault();
+          closePopupOverlay();
+          joinEvent();
+        };
+      } else if (data.buttonAction === 'claim_prize') {
+        // Claim event prize action
+        var eventId = data._eventId;
+        popupBtn.onclick = function(e) {
+          e.preventDefault();
+          closePopupOverlay();
+          claimEventPrize(eventId);
+        };
+      } else if (data.buttonAction === 'open_chat') {
+        // Open widget — only show main options if NOT in the middle of a flow
+        popupBtn.onclick = function(e) {
+          e.preventDefault();
+          closePopupOverlay();
+          toggleWidget(true);
+          // Safe states where we can show main options without interrupting a flow
+          var safeStates = ['options', 'welcome', 'idle'];
+          var inFlow = state.chatId && els.chatArea.classList.contains('active')
+                       && state.chatState && safeStates.indexOf(state.chatState) === -1;
+          if (!inFlow) {
+            setTimeout(function() { showMainOptions(); }, 300);
+          }
+          // If inFlow → just opens the widget, the current conversation continues untouched
+        };
+      } else if (data.buttonAction === 'link' && data.buttonUrl) {
+        popupBtn.href = data.buttonUrl;
+        popupBtn.target = '_blank';
+        popupBtn.onclick = function() { closePopupOverlay(); };
+      } else {
+        // Default: just close
+        popupBtn.onclick = function(e) { e.preventDefault(); closePopupOverlay(); };
+      }
+    } else {
+      popupBtn.style.display = 'none';
+    }
+
+    popupOverlay.classList.add('show');
+  }
+
+  function closePopupOverlay() {
+    popupOverlay.classList.remove('show');
+  }
+
+  if (popupCloseBtn) {
+    popupCloseBtn.addEventListener('click', closePopupOverlay);
+  }
+  if (popupOverlay) {
+    popupOverlay.addEventListener('click', function(e) {
+      if (e.target === popupOverlay) closePopupOverlay();
+    });
+  }
+
+  // ============================================
+  // HELPER: Add bot message to UI
+  // ============================================
+  function addBotMessage(text) {
+    addMessageToUI({
+      id: 'local-' + Date.now(),
+      sender: 'bot',
+      senderName: 'Casino 463',
+      text: text,
+      type: 'text',
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  // ============================================
+  // EVENT SYSTEM
+  // ============================================
+  function checkActiveEvent() {
+    var url = API_BASE + '/api/events/active';
+    if (state.clientId) url += '?clientId=' + state.clientId;
+    fetch(url)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.event) {
+          state.activeEvent = data.event;
+          state.eventJoined = data.alreadyJoined || false;
+          showEventBanner();
+          startEventTimer();
+        } else {
+          hideEventBanner();
+          state.activeEvent = null;
+        }
+      })
+      .catch(function() {});
+  }
+
+  function showEventBanner() {
+    // Floating banner (outside chat)
+    var banner = document.getElementById('event-banner');
+    var bannerText = document.getElementById('event-banner-text');
+    var bannerSub = document.getElementById('event-banner-sub');
+    var bannerBtn = document.getElementById('event-banner-btn');
+    var bannerPrize = document.getElementById('event-banner-prize');
+    if (banner && state.activeEvent) {
+      bannerText.textContent = state.activeEvent.name || '¡Evento activo!';
+      if (bannerSub) {
+        bannerSub.textContent = 'Cargá $' + Number(state.activeEvent.minDeposit).toLocaleString() + ' y participá del sorteo';
+      }
+      if (bannerPrize) {
+        bannerPrize.textContent = '🏆 ' + (state.activeEvent.prizeDescription || '$' + Number(state.activeEvent.prizeAmount).toLocaleString());
+      }
+      if (state.eventJoined) {
+        bannerBtn.textContent = '✓ INSCRIPTO';
+        bannerBtn.disabled = true;
+      } else {
+        bannerBtn.textContent = 'PARTICIPÁ';
+        bannerBtn.disabled = false;
+      }
+      banner.style.display = 'block';
+      // Push iframe down below banner
+      setTimeout(function() {
+        var bgIframe = getBgIframe();
+        if (bgIframe && banner) {
+          var h = banner.offsetHeight;
+          bgIframe.style.top = h + 'px';
+          bgIframe.style.height = 'calc(100% - ' + h + 'px)';
+        }
+      }, 50);
+    }
+
+    // Mini banner (inside chat)
+    var mini = document.getElementById('event-banner-mini');
+    var miniText = document.getElementById('event-mini-text');
+    if (mini && state.activeEvent) {
+      if (miniText) miniText.textContent = state.activeEvent.name || '¡Evento activo!';
+      mini.classList.add('show');
+    }
+  }
+
+  function hideEventBanner() {
+    var banner = document.getElementById('event-banner');
+    if (banner) banner.style.display = 'none';
+    // Reset iframe to full screen
+    var bgIframe = getBgIframe();
+    if (bgIframe) {
+      bgIframe.style.top = '0';
+      bgIframe.style.height = '100%';
+    }
+    var mini = document.getElementById('event-banner-mini');
+    if (mini) mini.classList.remove('show');
+  }
+
+  function startEventTimer() {
+    if (state.eventTimerInterval) clearInterval(state.eventTimerInterval);
+    var timerEl = document.getElementById('event-timer');
+    var miniTimerEl = document.getElementById('event-mini-timer');
+    if (!state.activeEvent || !state.activeEvent.endsAt) return;
+
+    state.eventTimerInterval = setInterval(function() {
+      var now = Date.now();
+      var end = new Date(state.activeEvent.endsAt).getTime();
+      var diff = end - now;
+      if (diff <= 0) {
+        if (timerEl) timerEl.textContent = '00:00:00';
+        if (miniTimerEl) miniTimerEl.textContent = '00:00';
+        hideEventBanner();
+        state.activeEvent = null;
+        state.eventJoined = false;
+        clearInterval(state.eventTimerInterval);
+        state.eventTimerInterval = null;
+        return;
+      }
+      var hrs = Math.floor(diff / 3600000);
+      var min = Math.floor((diff % 3600000) / 60000);
+      var sec = Math.floor((diff % 60000) / 1000);
+
+      // Full timer (floating banner)
+      if (timerEl) {
+        timerEl.textContent = String(hrs).padStart(2, '0') + ':' + String(min).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+        if (diff < 60000) {
+          timerEl.classList.add('urgent');
+        } else {
+          timerEl.classList.remove('urgent');
+        }
+      }
+
+      // Mini timer (inside chat)
+      if (miniTimerEl) {
+        miniTimerEl.textContent = String(min).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+        if (diff < 60000) {
+          miniTimerEl.classList.add('urgent');
+        } else {
+          miniTimerEl.classList.remove('urgent');
+        }
+      }
+    }, 1000);
+  }
+
+  function joinEvent() {
+    if (!state.activeEvent || !state.clientId) {
+      addBotMessage('Necesitás estar logueado para participar del evento.');
+      return;
+    }
+    fetch(API_BASE + '/api/events/' + state.activeEvent.id + '/join', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientId: state.clientId,
+        clientName: state.visitorName || state.casinoUsername,
+        chatId: state.chatId
+      })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) {
+        if (data.error.indexOf('Ya estás') !== -1) {
+          state.eventJoined = true;
+          showEventBanner();
+          addBotMessage('🎰 Ya estás participando en este evento. ¡Hacé tu depósito para clasificar!');
+        } else {
+          addBotMessage('Error: ' + data.error);
+        }
+        return;
+      }
+      state.eventJoined = true;
+      showEventBanner();
+      // Show confirmation in chat
+      addBotMessage('🎰 ¡Te inscribiste al evento "' + (state.activeEvent.name || 'Evento') + '"! Ahora hacé tu depósito de $' + Number(state.activeEvent.minDeposit).toLocaleString() + ' para quedar clasificado para el sorteo.');
+      // Refresh main options to remove PARTICIPAR button
+      if (state.chatState === 'options' || !state.chatState) {
+        showMainOptions();
+      }
+    })
+    .catch(function() {
+      addBotMessage('Error al inscribirse. Intentá de nuevo.');
+    });
+  }
+
+  function claimEventPrize(eventId) {
+    if (!eventId || !state.clientId) return;
+    fetch(API_BASE + '/api/events/' + eventId + '/claim-prize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId: state.clientId })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.ok) {
+        addBotMessage('🏆 ¡Felicidades! Tus $' + Number(data.prizeAmount).toLocaleString() + ' fichas de premio fueron acreditadas en tu cuenta. ¡Disfrutalas!');
+      } else {
+        addBotMessage(data.error || 'Error al reclamar el premio.');
+      }
+    })
+    .catch(function() {
+      addBotMessage('Error al reclamar. Contactá a soporte.');
+    });
+  }
+
+  function showWinnerPopup(data) {
+    showPopupOverlay({
+      title: '🎉 ¡GANASTE!',
+      body: '¡Felicidades! Ganaste ' + data.prizeDescription + ' en el evento "' + data.eventName + '". ¡Reclamá tus fichas ahora!',
+      imageUrl: '',
+      buttonText: '🏆 RECLAMAR FICHAS',
+      buttonAction: 'claim_prize',
+      _eventId: data.eventId
+    });
+  }
+
+  // Event banner button click → open widget (join happens from chat PARTICIPAR button or popup)
+  var eventBannerBtn = document.getElementById('event-banner-btn');
+  if (eventBannerBtn) {
+    eventBannerBtn.addEventListener('click', function() {
+      toggleWidget(true);
+      // Refresh main options so PARTICIPAR button is visible in chat
+      if (!state.eventJoined && (state.chatState === 'options' || !state.chatState)) {
+        setTimeout(function() { showMainOptions(); }, 300);
+      }
+    });
+  }
+
+  // ============================================
+  // AUTO-LOGIN: detect login from 463.life iframe
+  // ============================================
+  async function autoLoginFromIframe(username, password) {
+    if (state.chatId && state.visitorName) return; // Already logged in
+    try {
+      const result = await loginWidget(username, password);
+      state.chatId = result.chat.id;
+      state.visitorName = result.client.nombre;
+      state.casinoUsername = result.client.usuario;
+      state.clientId = result.client.id;
+      state.resolved = result.chat.status === 'resolved';
+      saveState();
+
+      showChatArea();
+      hideResolved();
+      connectSocket();
+      if (state.socket) {
+        state.socket.emit('visitor:join', state.chatId);
+        state.socket.emit('widget:identify', { clientId: state.clientId, chatId: state.chatId });
+      }
+      subscribeToPush();
+      checkAndShowPushBanner();
+      checkActiveEvent();
+      const messages = await loadMessages(state.chatId);
+      messages.forEach((msg) => addMessageToUI(msg));
+      showButtonsForState(result.chat.state || 'options');
+      if (state.resolved) showResolved();
+      // Auto-open the widget chat after everything is loaded
+      setTimeout(function() { toggleWidget(true); }, 500);
+    } catch (e) {
+      console.log('[AUTO-LOGIN] Failed:', e.message);
+    }
+  }
+
+  // Auto-login by username only (no password needed - used when 463.life notifies login)
+  async function autoLoginByUsername(username) {
+    if (state.chatId && state.visitorName) return;
+    try {
+      var resp = await fetch(API_BASE + '/api/chat/widget/auto-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username }),
+      });
+      var data = await resp.json();
+      if (!resp.ok || !data.success) {
+        console.log('[AUTO-LOGIN] User not found in chat system:', username);
+        return;
+      }
+      state.chatId = data.chat.id;
+      state.visitorName = data.client.nombre;
+      state.casinoUsername = data.client.usuario;
+      state.clientId = data.client.id;
+      state.resolved = data.chat.status === 'resolved';
+      saveState();
+
+      showChatArea();
+      hideResolved();
+      connectSocket();
+      if (state.socket) {
+        state.socket.emit('visitor:join', state.chatId);
+        state.socket.emit('widget:identify', { clientId: state.clientId, chatId: state.chatId });
+      }
+      subscribeToPush();
+      checkAndShowPushBanner();
+      checkActiveEvent();
+      var messages = await loadMessages(state.chatId);
+      messages.forEach(function(msg) { addMessageToUI(msg); });
+      showButtonsForState(data.chat.state || 'options');
+      if (state.resolved) showResolved();
+      // Auto-open the widget chat
+      setTimeout(function() { toggleWidget(true); }, 500);
+      console.log('[AUTO-LOGIN] Success! Logged in as:', username);
+    } catch (e) {
+      console.log('[AUTO-LOGIN] Failed:', e.message);
+    }
+  }
+
+  // Listen for postMessage from 463.life iframe
+  window.addEventListener('message', function(event) {
+    // Accept login messages from any origin (the casino page)
+    if (event.data && event.data.type === 'casino-login' && event.data.username) {
+      autoLoginFromIframe(event.data.username, event.data.password || event.data.username);
+    }
+    // 463.life sends: {tipo:"login", token: "xxx", usuario: "xxx"} on successful login
+    if (event.data && event.data.tipo === 'login' && event.data.usuario) {
+      console.log('[WIDGET] Detected 463.life login for user:', event.data.usuario);
+      if (!state.chatId) {
+        autoLoginByUsername(event.data.usuario);
+      }
+    }
+    // 463.life sends: {tipo:"logout"} on logoff → disconnect widget
+    if (event.data && event.data.tipo === 'logout') {
+      console.log('[WIDGET] 🔓 Detected 463.life logout — disconnecting widget');
+      // Disconnect socket
+      if (state.socket) {
+        state.socket.disconnect();
+        state.socket = null;
+      }
+      // Clear all state + localStorage
+      clearState();
+      try { localStorage.removeItem('c463_casino_user'); localStorage.removeItem('c463_casino_pass'); } catch(e) {}
+      // Clear chat messages
+      els.messagesContainer.innerHTML = '';
+      // Reset UI → show identification screen
+      hideResolved();
+      showPrechatForm();
+      state.quickActionsVisible = true;
+      els.quickActions.style.display = '';
+      // Close widget panel
+      toggleWidget(false);
+      // Reset iframe back to home
+      navigateBgIframe('https://463.life');
+    }
+    // casino-widget.js sends: {type:"casino-navigate", url:"..."} → navigate bg-iframe
+    if (event.data && event.data.type === 'casino-navigate' && event.data.url) {
+      var navBgIframe = getBgIframe();
+      if (navBgIframe) {
+        navBgIframe.src = event.data.url;
+        console.log('[WIDGET] Navigate bg-iframe →', event.data.url);
+      }
+    }
+  });
+
+  // Poll iframe for login detection (check if URL changed after login)
+  function watchIframeLogin() {
+    var iframe = getBgIframe();
+    if (!iframe) return;
+
+    // Inject a script into the iframe to intercept login (only works same-origin)
+    // For cross-origin, we monitor via a polling approach
+    var lastUrl = '';
+    setInterval(function() {
+      try {
+        var iframeUrl = iframe.contentWindow.location.href;
+        if (iframeUrl !== lastUrl) {
+          lastUrl = iframeUrl;
+          // Try to extract username from URL or cookies after login redirect
+          var match = iframeUrl.match(/[?&]user(?:name)?=([^&]+)/i);
+          if (match && !state.chatId) {
+            autoLoginFromIframe(decodeURIComponent(match[1]), decodeURIComponent(match[1]));
+          }
+        }
+      } catch (e) {
+        // Cross-origin — can't read URL, that's OK
+      }
+    }, 2000);
+  }
+
+  // ============================================
+  // INITIALIZATION
+  // ============================================
+  // Expose login functions for programmatic API (casino-widget.js)
+  window.__casino463_autoLogin = function(u, p) { autoLoginFromIframe(u, p); };
+  window.__casino463_autoLoginByUsername = function(u) { autoLoginByUsername(u); };
+  window.__casino463_toggleWidget = function(open) { toggleWidget(open); };
+
+  async function init() {
+    loadState();
+
+    // Register Service Worker for PWA (skip in embed mode — cross-origin limitation)
+    if (!window.__casino463_embedMode) {
+      registerServiceWorker();
+    }
+
+    // Auto-login from URL params: ?u=USUARIO&p=PIN (same format as casino platforms)
+    var urlParams = new URLSearchParams(window.location.search);
+    var autoUser = urlParams.get('u') || urlParams.get('user');
+    var autoPass = urlParams.get('p') || urlParams.get('pass');
+    if (autoUser && autoPass) {
+      // 1. Load 463.life iframe with casino login format (?u=&p=)
+      navigateBgIframe('https://463.life/?u=' + encodeURIComponent(autoUser) + '&p=' + encodeURIComponent(autoPass));
+      // 2. Auto-login to chat widget
+      if (!state.chatId) {
+        await autoLoginFromIframe(autoUser, autoPass);
+      }
+      // Clean URL params
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    if (state.chatId && state.visitorName) {
+      // Attempt to resume existing chat
+      const resumed = await resumeChat();
+      if (!resumed) {
+        // Chat no longer valid, show pre-chat form
+        showPrechatForm();
+      } else {
+        // Existing session resumed — subscribe to push
+        subscribeToPush();
+        // Show push notification banner if not subscribed
+        checkAndShowPushBanner();
+        // Check for active events
+        checkActiveEvent();
+      }
+    } else {
+      // No existing chat, show pre-chat form
+      showPrechatForm();
+    }
+
+    // Connect socket early for status display
+    connectSocket();
+
+    // Start promo bubble loop
+    startPromoLoop();
+
+    // Check iOS install banner (skip in embed mode)
+    if (!window.__casino463_embedMode) {
+      checkIOSInstallBanner();
+    }
+
+    // Watch iframe for login
+    watchIframeLogin();
+  }
+
+  // Start when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+})();
+</script>
+</body>
+</html>

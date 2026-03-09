@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Casino 463 — Widget Embed Example</title>
+  <style>
+    /* This page is a minimal wrapper — the widget takes over everything */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+  </style>
+</head>
+<body>
+
+  <!--
+  ╔══════════════════════════════════════════════════════════╗
+  ║  CASINO 463 — WIDGET EMBED CODE (TitanWidget Pattern)  ║
+  ║                                                          ║
+  ║  Architecture (like ganaya.live):                         ║
+  ║    • Background: 463.life iframe at z-index:1            ║
+  ║    • Widget: DOM elements at z-index:1000                ║
+  ║    • pointer-events:none on container                    ║
+  ║    • pointer-events:auto on interactive children         ║
+  ║    • NO iframe for the widget — direct DOM injection     ║
+  ║                                                          ║
+  ║  Just copy the <script> block into any HTML page.        ║
+  ╚══════════════════════════════════════════════════════════╝
+  -->
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- OPTION 1: Full-page mode (like ganaya.live)     -->
+  <!-- 463.life background + floating widget on top    -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <script src="/casino-widget.js"></script>
+  <script>
+    CasinoWidget.init({
+      // serverUrl: 'https://your-server.com',  // Auto-detected if script loaded from same server
+      // siteUrl: 'https://463.life',           // Override background page URL (default: 463.life)
+      // autoLogin: { username: 'user', password: 'pass' },  // Auto-login on load
+      // position: 'full'                       // 'full' (default) or 'corner' (floating only)
+    });
+  </script>
+
+  <!--
+  ═══════════════════════════════════════════════════════
+  OPTION 2: Corner mode (floating chat only, no background)
+  Use this when embedding on an EXISTING page (like 463.life itself)
+  ═══════════════════════════════════════════════════════
+
+  <script src="https://YOUR-SERVER/casino-widget.js"></script>
+  <script>
+    CasinoWidget.init({
+      serverUrl: 'https://YOUR-SERVER',
+      position: 'corner'
+    });
+  </script>
+  -->
+
+  <!--
+  ═══════════════════════════════════════════════════════
+  HOW IT WORKS (TitanWidget Pattern):
+
+  1. casino-widget.js creates a bg-iframe for 463.life (z-index:1)
+  2. Fetches /widget from the server
+  3. Extracts CSS + HTML + JS from widget.html
+  4. Injects CSS as <style> tag
+  5. Injects HTML into a container div (z-index:1000, pointer-events:none)
+  6. Loads Socket.IO from CDN
+  7. Executes widget JS directly in the page
+
+  Result: The widget button and chat panel are REAL DOM elements
+  on the page — NOT inside an iframe. This means:
+    • pointer-events:none works correctly (clicks pass through to 463.life)
+    • The widget looks identical to /widget
+    • All functionality works (chat, events, popups, push, etc.)
+
+  ═══════════════════════════════════════════════════════
+  PROGRAMMATIC API:
+
+    CasinoWidget.login('usuario', 'password');  // Force login
+    CasinoWidget.logout();                       // Force logout
+    CasinoWidget.navigate('https://url');         // Navigate bg-iframe
+    CasinoWidget.toggle(true);                    // Open widget
+    CasinoWidget.toggle(false);                   // Close widget
+    CasinoWidget.destroy();                        // Remove widget completely
+  ═══════════════════════════════════════════════════════
+  -->
+
+</body>
+</html>
