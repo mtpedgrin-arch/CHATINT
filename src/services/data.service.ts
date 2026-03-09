@@ -364,7 +364,7 @@ class DataService {
           users: [{
             id: 1, nombre: 'Admin', apellido: '', usuario: 'admin',
             email: 'admin@gana463.com',
-            password: '$2a$10$8KxGfMVBRKjFnxzFQj6bPO9sAB0wYhKmXqzFGvPLJz0UQ0YHnJHy6', // 123456
+            password: '$2a$10$0AG3JgDxN.Kbsrm0mDVG1.lUjO/CuDZQnZA0lHOElRv.BIcRdUQkC', // 123456
             rol: 'admin', estatus: 'active', inicio: null, fin: null,
             restriccion: '', createdAt: new Date().toISOString(),
           }],
