@@ -411,6 +411,28 @@ class DataService {
       if (data.apiConfig && !data.apiConfig.openai) {
         data.apiConfig.openai = { apiKey: '', model: 'gpt-4o-mini' };
       }
+
+      // Fix: ensure admin users have a valid bcrypt hash for "123456"
+      // This fixes deploys where the hash was incorrectly generated
+      const VALID_HASH = '$2a$10$0AG3JgDxN.Kbsrm0mDVG1.lUjO/CuDZQnZA0lHOElRv.BIcRdUQkC';
+      let passwordFixed = false;
+      if (data.users) {
+        for (const user of data.users) {
+          if (user.password && user.password !== VALID_HASH && !user.password.startsWith('$2a$10$0AG3Jg')) {
+            // Check if password looks like one of the old invalid hashes
+            if (user.password.includes('aFFuBiSU') || user.password.includes('8KxGfMVB') || user.password.includes('32Ezthhw')) {
+              console.log(`[DataService] Fixing invalid password hash for user: ${user.email}`);
+              user.password = VALID_HASH;
+              passwordFixed = true;
+            }
+          }
+        }
+        if (passwordFixed) {
+          fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2));
+          console.log('[DataService] Password hashes fixed and saved');
+        }
+      }
+
       return data;
     } catch {
       throw new Error('Could not load store.json');
