@@ -2217,6 +2217,8 @@ html, body {
 
     state.socket.on('message:new', (msg) => {
       if (!msg || msg.chatId !== state.chatId) return;
+      // Skip if already shown via HTTP response (prevent duplicates)
+      if (msg.id && state._httpMsgIds && state._httpMsgIds.indexOf(msg.id) !== -1) return;
       // Only add messages from agents/bot/system (visitor messages added optimistically)
       if (msg.sender !== 'visitor') {
         addMessageToUI(msg);
@@ -2434,6 +2436,16 @@ html, body {
           text: err.error || 'Error al subir imagen',
           timestamp: new Date().toISOString(),
         });
+      } else {
+        // Process bot response messages (confirmation, etc.)
+        var data = await resp.json();
+        if (data.botMessages && data.botMessages.length > 0) {
+          data.botMessages.forEach(function(msg) {
+            // Mark as shown via HTTP so socket won't duplicate
+            if (msg.id) state._httpMsgIds = (state._httpMsgIds || []).concat(msg.id);
+            addMessageToUI(msg);
+          });
+        }
       }
     } catch (e) {
       addMessageToUI({
