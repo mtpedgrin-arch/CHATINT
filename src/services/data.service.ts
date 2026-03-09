@@ -1178,11 +1178,11 @@ class DataService {
   getPaltaConfig(): PaltaConfig {
     const config = this.store.paltaConfig || {
       email: '', password: '', enabled: false,
-      pollIntervalSeconds: 60, autoApprove: true, headless: false,
+      pollIntervalSeconds: 60, autoApprove: true, headless: true,
       lastPollAt: null, status: 'stopped', errorMessage: '',
     };
-    // Backward compat: add headless if missing
-    if (config.headless === undefined) config.headless = false;
+    // Backward compat: add headless if missing (true for server/Docker)
+    if (config.headless === undefined) config.headless = true;
     return config;
   }
 

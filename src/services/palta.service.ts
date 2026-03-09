@@ -73,7 +73,7 @@ class PaltaService {
 
   private async launchBrowser(): Promise<void> {
     const config = dataService.getPaltaConfig();
-    const useHeadless = config.headless ?? false; // default: visible (para primer login manual)
+    const useHeadless = config.headless ?? true; // default: headless (servidor/Docker)
     console.log(`[Palta] Browser mode: ${useHeadless ? 'HEADLESS (servidor)' : 'VISIBLE (para login manual)'}`);
 
     this.browser = await (puppeteer as any).launch({
