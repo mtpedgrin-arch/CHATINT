@@ -9,6 +9,7 @@ puppeteer.use(StealthPlugin());
 
 const SESSION_DIR = path.join(__dirname, '../../data/palta-session');
 const USER_DATA_DIR = path.join(SESSION_DIR, 'chrome-profile');
+const COOKIES_PATH = path.join(SESSION_DIR, 'cookies.json');
 
 // Ensure directories exist
 [SESSION_DIR, USER_DATA_DIR].forEach(dir => {
@@ -67,6 +68,33 @@ class PaltaService {
       walletId: this.walletId,
       userName: this.userInfo ? `${this.userInfo.name || ''} ${this.userInfo.lastname || ''}`.trim() : null,
     };
+  }
+
+  // ─── COOKIE MANAGEMENT (persist session across restarts) ───
+
+  private async saveCookies(): Promise<void> {
+    try {
+      if (!this.page) return;
+      const cookies = await this.page.cookies();
+      fs.writeFileSync(COOKIES_PATH, JSON.stringify(cookies, null, 2));
+      console.log(`[Palta] 🍪 ${cookies.length} cookies guardadas en ${COOKIES_PATH}`);
+    } catch (err: any) {
+      console.error(`[Palta] Error guardando cookies: ${err.message}`);
+    }
+  }
+
+  private loadCookies(): any[] {
+    try {
+      if (!fs.existsSync(COOKIES_PATH)) return [];
+      const data = fs.readFileSync(COOKIES_PATH, 'utf-8');
+      const cookies = JSON.parse(data);
+      if (!Array.isArray(cookies) || cookies.length === 0) return [];
+      console.log(`[Palta] 🍪 ${cookies.length} cookies cargadas desde archivo`);
+      return cookies;
+    } catch (err: any) {
+      console.error(`[Palta] Error cargando cookies: ${err.message}`);
+      return [];
+    }
   }
 
   // ─── BROWSER MANAGEMENT ───────────────────────
@@ -160,6 +188,13 @@ class PaltaService {
       console.log('[Palta] 🌐 Iniciando navegador...');
       await this.launchBrowser();
 
+      // Try to restore saved cookies BEFORE navigating (skip login if session is valid)
+      const savedCookies = this.loadCookies();
+      if (savedCookies.length > 0) {
+        console.log(`[Palta] 🍪 Restaurando ${savedCookies.length} cookies guardadas...`);
+        await this.page!.setCookie(...savedCookies);
+      }
+
       await this.page!.goto('https://activa-app.palta.app', {
         waitUntil: 'networkidle2',
         timeout: 30000,
@@ -171,17 +206,19 @@ class PaltaService {
       if (currentUrl.includes('/auth')) {
         const config = dataService.getPaltaConfig();
 
-        // Try auto-login if credentials are configured (headless/server mode)
+        if (savedCookies.length > 0) {
+          console.log('[Palta] ⚠️ Cookies expiradas, necesita nuevo login');
+        }
+
+        // Try auto-login if credentials are configured
         if (config.email && config.password) {
           console.log('[Palta] 🔐 Auto-login con credenciales guardadas...');
           dataService.updatePaltaConfig({ status: 'logging_in', errorMessage: '' });
           this.emitStatus();
 
           try {
-            // Wait for login form to be ready
             await this.delay(2000);
 
-            // Try to find and fill email field
             const emailSelector = 'input[type="email"], input[name="email"], input[placeholder*="mail"], input[placeholder*="correo"]';
             const passwordSelector = 'input[type="password"], input[name="password"]';
             const submitSelector = 'button[type="submit"], button:not([type])';
@@ -194,32 +231,29 @@ class PaltaService {
             await this.page!.type(passwordSelector, config.password, { delay: 50 });
             await this.delay(500);
 
-            // Click submit
             await this.page!.click(submitSelector);
-            console.log('[Palta] 📤 Formulario de login enviado, esperando respuesta...');
+            console.log('[Palta] 📤 Formulario enviado, esperando...');
 
-            // Wait for navigation away from /auth
             for (let i = 0; i < 20; i++) {
               await this.delay(3000);
               if (!this.page || !this.browser) {
                 return { success: false, message: 'Navegador cerrado durante login' };
               }
-              const url = this.page.url();
-              if (!url.includes('/auth')) {
+              if (!this.page.url().includes('/auth')) {
                 console.log('[Palta] ✅ Auto-login exitoso');
+                await this.saveCookies();
                 break;
               }
             }
 
             if (this.page?.url().includes('/auth')) {
-              console.log('[Palta] ❌ Auto-login falló (credenciales incorrectas o 2FA requerido)');
-              dataService.updatePaltaConfig({ status: 'login_required', errorMessage: 'Auto-login falló. Verifica email/password en config de Palta.' });
+              console.log('[Palta] ❌ Auto-login falló');
+              dataService.updatePaltaConfig({ status: 'login_required', errorMessage: 'Auto-login falló. Verifica credenciales.' });
               this.emitStatus();
               return { success: false, message: 'Auto-login falló. Verifica credenciales.', loginRequired: true };
             }
           } catch (autoLoginErr: any) {
-            console.log(`[Palta] ⚠️ Auto-login error: ${autoLoginErr.message}. Esperando login manual...`);
-            // Fall through to manual login wait
+            console.log(`[Palta] ⚠️ Auto-login error: ${autoLoginErr.message}`);
           }
         }
 
@@ -229,15 +263,15 @@ class PaltaService {
           dataService.updatePaltaConfig({ status: 'login_required', errorMessage: '' });
           this.emitStatus();
 
-          // Wait for manual login (up to 5 minutes)
           for (let i = 0; i < 100; i++) {
             await this.delay(3000);
             if (!this.page || !this.browser) {
               return { success: false, message: 'Navegador cerrado durante login' };
             }
-            const url = this.page.url();
-            if (!url.includes('/auth')) {
+            if (!this.page.url().includes('/auth')) {
               console.log('[Palta] ✅ Login detectado');
+              // Save cookies after successful manual login!
+              await this.saveCookies();
               break;
             }
           }
@@ -247,6 +281,9 @@ class PaltaService {
             return { success: false, message: 'Timeout esperando login manual', loginRequired: true };
           }
         }
+      } else {
+        // Already logged in — save/refresh cookies
+        await this.saveCookies();
       }
 
       // Wait for API data capture

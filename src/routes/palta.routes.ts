@@ -257,4 +257,38 @@ router.post('/test-popup', (req: Request, res: Response) => {
   });
 });
 
+// ── COOKIES: Export/Import for Railway persistence ──
+// Export cookies (download from local after manual login)
+router.get('/cookies', (_req: Request, res: Response) => {
+  try {
+    const cookiesPath = require('path').join(__dirname, '../../data/palta-session/cookies.json');
+    const fs = require('fs');
+    if (!fs.existsSync(cookiesPath)) {
+      return res.status(404).json({ error: 'No hay cookies guardadas. Logueate primero localmente.' });
+    }
+    const cookies = JSON.parse(fs.readFileSync(cookiesPath, 'utf-8'));
+    res.json({ cookies, count: cookies.length });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Import cookies (upload to Railway so it can skip login)
+router.post('/cookies', (req: Request, res: Response) => {
+  try {
+    const { cookies } = req.body;
+    if (!cookies || !Array.isArray(cookies)) {
+      return res.status(400).json({ error: 'Enviar { cookies: [...] }' });
+    }
+    const cookiesPath = require('path').join(__dirname, '../../data/palta-session/cookies.json');
+    const fs = require('fs');
+    const dir = require('path').dirname(cookiesPath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(cookiesPath, JSON.stringify(cookies, null, 2));
+    res.json({ success: true, message: `${cookies.length} cookies importadas`, count: cookies.length });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
