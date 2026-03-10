@@ -1251,12 +1251,30 @@ class PaltaService {
   /** Fix stale status on server startup */
   fixStaleStatus() {
     const config = dataService.getPaltaConfig();
-    if ((config.status === 'running' || config.enabled) && !this.browser && !this.apiMode) {
+    // Fix any non-stopped status when there's no active connection
+    if ((config.status === 'running' || config.status === 'logging_in' || config.status === 'login_required' || config.enabled) && !this.browser && !this.apiMode) {
       console.log('[Palta] ⚠️ Corrigiendo estado inconsistente');
       dataService.updatePaltaConfig({
         status: 'stopped',
         enabled: false,
-        errorMessage: 'Servidor reiniciado',
+        errorMessage: 'Servidor reiniciado — presioná Iniciar para reconectar',
+      });
+    }
+
+    // Auto-start API mode if credentials are configured
+    const updated = dataService.getPaltaConfig();
+    if (updated.email && updated.password) {
+      console.log('[Palta] 🔄 Auto-iniciando API mode...');
+      this.initApiMode().then(result => {
+        if (result.success) {
+          console.log(`[Palta] ✅ Auto-start exitoso: ${result.message}`);
+          // Auto-start polling too
+          this.startPolling();
+        } else {
+          console.log(`[Palta] ⚠️ Auto-start falló: ${result.message}`);
+        }
+      }).catch(err => {
+        console.error(`[Palta] ❌ Auto-start error: ${err.message}`);
       });
     }
   }
