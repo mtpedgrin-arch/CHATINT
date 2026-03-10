@@ -180,11 +180,13 @@ class PaltaService {
     }
 
     try {
-      console.log(`[Palta] 🔥 Firebase login con ${config.email}...`);
+      const email = config.email.trim();
+      const password = config.password.trim();
+      console.log(`[Palta] 🔥 Firebase login con ${email}...`);
       dataService.updatePaltaConfig({ status: 'logging_in', errorMessage: '' });
       this.emitStatus();
 
-      const credential = await signInWithEmailAndPassword(firebaseAuth, config.email, config.password);
+      const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
       this.firebaseUser = credential.user;
       this.authToken = await credential.user.getIdToken();
       this.saveToken(this.authToken);

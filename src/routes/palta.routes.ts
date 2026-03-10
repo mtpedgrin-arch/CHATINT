@@ -257,6 +257,16 @@ router.post('/test-popup', (req: Request, res: Response) => {
   });
 });
 
+// ── TEST: Firebase login only (debug) ──
+router.post('/test-firebase', async (_req: Request, res: Response) => {
+  try {
+    const result = await paltaService.firebaseLogin();
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // ── AUTH TOKEN: Export/Import for Railway (API mode without browser) ──
 // Export token (get from local after manual login)
 router.get('/token', (_req: Request, res: Response) => {
