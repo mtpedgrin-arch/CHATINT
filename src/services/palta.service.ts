@@ -304,9 +304,9 @@ class PaltaService {
     return { success: true, message: `API mode — ${this.userInfo?.name || ''} ${this.userInfo?.lastname || ''}`.trim() };
   }
 
-  // Fetch activities via direct API (no browser)
+  // Fetch activities (cashins + commissions) via direct API (no browser)
   async getActivitiesApi(): Promise<PaltaActivity[]> {
-    if (!this.authToken || !this.walletId) throw new Error('API mode no inicializado');
+    if (!this.authToken || !this.userId) throw new Error('API mode no inicializado');
 
     // Refresh Palta JWT if Firebase user is available (full flow: Firebase → verifyToken)
     if (this.firebaseUser) {
@@ -320,13 +320,17 @@ class PaltaService {
 
     for (let page = 1; page <= pages; page++) {
       try {
-        const resp = await this.apiCall(`/wallets/${this.walletId}/activities`, {
+        // Correct endpoint: /user/{userId}/activities (returns cashins + commissions, newest first)
+        const resp = await this.apiCall(`/user/${this.userId}/activities`, {
           page: String(page),
           limit: '50',
         });
-        if (resp.data?.activities?.length > 0) {
-          allActivities.push(...resp.data.activities);
-          console.log(`[Palta-API] Página ${page}: ${resp.data.activities.length} transacciones`);
+        const activities = resp.data?.activities;
+        if (activities?.length > 0) {
+          // Filter out commissions — we only want incoming transfers
+          const cashins = activities.filter((a: any) => !a.commission && a.counterparty);
+          allActivities.push(...(cashins as PaltaActivity[]));
+          console.log(`[Palta-API] Página ${page}: ${activities.length} actividades (${cashins.length} cashins)`);
         } else {
           break;
         }
@@ -336,14 +340,15 @@ class PaltaService {
           // Token expired, try refresh
           const relogin = await this.firebaseLogin();
           if (relogin.success) {
-            // Retry this page
             try {
-              const resp = await this.apiCall(`/wallets/${this.walletId}/activities`, {
+              const resp = await this.apiCall(`/user/${this.userId}/activities`, {
                 page: String(page),
                 limit: '50',
               });
-              if (resp.data?.activities?.length > 0) {
-                allActivities.push(...resp.data.activities);
+              const activities = resp.data?.activities;
+              if (activities?.length > 0) {
+                const cashins = activities.filter((a: any) => !a.commission && a.counterparty);
+                allActivities.push(...(cashins as PaltaActivity[]));
               }
             } catch {}
           }
