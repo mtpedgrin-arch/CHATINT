@@ -12,6 +12,7 @@ import io from 'socket.io-client';
 const statusColors = {
   stopped: '#ef4444',
   running: '#22c55e',
+  logging_in: '#3b82f6',
   login_required: '#f59e0b',
   error: '#ef4444',
 };
@@ -19,6 +20,7 @@ const statusColors = {
 const statusLabels = {
   stopped: 'Detenido',
   running: 'Activo',
+  logging_in: 'Conectando...',
   login_required: 'Login Requerido',
   error: 'Error',
 };
@@ -241,7 +243,7 @@ export default function PaltaWallet() {
           >
             {actionLoading === 'test' ? '⏳ Probando...' : '🧪 Probar Conexión'}
           </button>
-          {status?.status === 'running' && status?.browserOpen ? (
+          {status?.status === 'running' && (status?.browserOpen || status?.apiMode) ? (
             <>
               <button
                 style={{ ...styles.btn, ...styles.btnSuccess }}
@@ -316,12 +318,9 @@ export default function PaltaWallet() {
         <div style={styles.loginBanner}>
           <span style={{ fontSize: 24 }}>🔐</span>
           <div style={{ flex: 1 }}>
-            <strong>Login manual requerido</strong>
+            <strong>Credenciales incorrectas o no configuradas</strong>
             <p style={{ margin: '4px 0 8px', opacity: 0.9, fontSize: 13 }}>
-              {config?.headless
-                ? 'Palta está en modo Headless (invisible). Necesitás reiniciar en modo visible para loguearte.'
-                : 'Necesitás abrir el Chrome de Palta para loguearte manualmente.'
-              }
+              Verifica el email y password de Palta en la seccion Config y volve a Iniciar.
             </p>
             <button
               style={{ ...styles.btn, ...styles.btnWarning, padding: '6px 16px', fontSize: 13 }}
@@ -457,7 +456,7 @@ function DashboardTab({ status, stats }) {
         <KpiCard icon="💵" label="Volumen Hoy" value={`$${(stats?.todayVolume || 0).toLocaleString('es-AR')}`} color="#8b5cf6" />
         <KpiCard icon="💰" label="Volumen Total" value={`$${(stats?.totalVolume || 0).toLocaleString('es-AR')}`} color="#6366f1" />
         <KpiCard icon="📡" label="Ultimo Scan" value={status?.lastPollAt ? timeAgo(status.lastPollAt) : 'Nunca'} color="#64748b" />
-        <KpiCard icon="🌐" label="Browser" value={status?.browserOpen ? 'Abierto' : 'Cerrado'} color={status?.browserOpen ? '#22c55e' : '#ef4444'} />
+        <KpiCard icon={status?.mode === 'api' ? '🔥' : '🌐'} label="Modo" value={status?.mode === 'api' ? 'Firebase API' : status?.browserOpen ? 'Browser' : 'Desconectado'} color={status?.mode === 'api' ? '#f97316' : status?.browserOpen ? '#22c55e' : '#ef4444'} />
       </div>
 
       {/* Connection Info */}
@@ -786,10 +785,24 @@ function ConfigTab({ config, editConfig, setEditConfig, onSave, status, onToggle
       </div>
 
       <div style={styles.card}>
-        <h3 style={styles.cardTitle}>🖥️ Modo de Navegador</h3>
+        <h3 style={styles.cardTitle}>🔥 Modo de Conexion</h3>
+        <div style={{
+          padding: 16, borderRadius: 8, fontSize: 13, lineHeight: 1.7,
+          background: 'rgba(249, 115, 22, 0.1)',
+          border: '1px solid rgba(249, 115, 22, 0.2)',
+          color: '#fb923c',
+        }}>
+          <strong>Firebase API Mode (Recomendado)</strong><br/>
+          Palta se conecta directamente via Firebase Auth usando email y password.<br/>
+          <strong>No necesita Chrome ni browser.</strong> Funciona en Railway y cualquier servidor.<br/>
+          El token se renueva automaticamente cada 50 minutos.<br/><br/>
+          <span style={{ color: '#94a3b8', fontSize: 12 }}>
+            Solo necesitas configurar email y password de Palta en la seccion de arriba y darle <strong>Iniciar</strong>.
+          </span>
+        </div>
         <div style={styles.formGrid}>
           <div style={styles.formGroup}>
-            <label style={styles.label}>Modo Servidor (Headless)</label>
+            <label style={styles.label}>Modo Servidor (Headless) - Fallback</label>
             <div
               style={{ ...styles.toggle, ...(editing?.headless ? styles.toggleActive : {}) }}
               onClick={() => setEditConfig({ ...editing, headless: !editing?.headless })}
@@ -797,33 +810,8 @@ function ConfigTab({ config, editConfig, setEditConfig, onSave, status, onToggle
               <div style={{ ...styles.toggleDot, ...(editing?.headless ? styles.toggleDotActive : {}) }} />
             </div>
             <span style={styles.hint}>
-              {editing?.headless
-                ? '🖥️ SERVIDOR: Browser invisible (no necesita pantalla). Usar después del primer login exitoso.'
-                : '👁️ VISIBLE: Browser con ventana visible (necesario para el primer login manual).'}
+              Solo se usa si Firebase falla. Headless ON = browser invisible (servidor). OFF = visible (local).
             </span>
-          </div>
-          <div style={styles.formGroup}>
-            <div style={{
-              padding: 12, borderRadius: 8, fontSize: 12, lineHeight: 1.6,
-              background: editing?.headless ? 'rgba(34, 197, 94, 0.1)' : 'rgba(245, 158, 11, 0.1)',
-              border: `1px solid ${editing?.headless ? 'rgba(34, 197, 94, 0.2)' : 'rgba(245, 158, 11, 0.2)'}`,
-              color: editing?.headless ? '#4ade80' : '#fbbf24',
-            }}>
-              {editing?.headless ? (
-                <>
-                  <strong>✅ Listo para producción</strong><br/>
-                  El browser correrá en segundo plano sin necesidad de pantalla.
-                  Ideal para servidores Linux/VPS.<br/>
-                  <em>⚠️ Si necesitás re-loguearte, desactivá esto primero.</em>
-                </>
-              ) : (
-                <>
-                  <strong>👁️ Modo desarrollo</strong><br/>
-                  Se abrirá una ventana de Chrome visible para que puedas
-                  loguearte manualmente la primera vez.
-                </>
-              )}
-            </div>
           </div>
         </div>
       </div>
@@ -831,10 +819,9 @@ function ConfigTab({ config, editConfig, setEditConfig, onSave, status, onToggle
       <div style={styles.card}>
         <h3 style={styles.cardTitle}>Notas Tecnicas</h3>
         <ul style={styles.notesList}>
-          <li>Palta Wallet no tiene API publica. Se usa Puppeteer (navegador real) para scrapear.</li>
-          <li>El login se hace <strong>manualmente</strong> la primera vez (reCAPTCHA v3 bloquea login automatico).</li>
-          <li>La sesion se mantiene con keep-alive cada 60 seg.</li>
-          <li>Las transacciones se interceptan del API interna de Palta.</li>
+          <li><strong>Modo API (Firebase):</strong> Login directo con Firebase SDK, sin browser ni Chrome. Token se renueva solo.</li>
+          <li><strong>Modo Browser (fallback):</strong> Usa Puppeteer si Firebase falla. Requiere Chrome instalado.</li>
+          <li>Las transacciones se obtienen de la API de Palta (<code>prod-api.palta.app</code>).</li>
           <li>El matching compara <strong>nombre parcial + monto exacto</strong>.</li>
           <li>Auto-aprobacion requiere <strong>confianza &gt;= 75%</strong>.</li>
         </ul>

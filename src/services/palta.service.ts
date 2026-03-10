@@ -3,15 +3,31 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import type { Browser, Page } from 'puppeteer';
 import fs from 'fs';
 import path from 'path';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInWithEmailAndPassword, type User } from 'firebase/auth';
 import { dataService, type PaltaTransaction, type Payment } from './data.service';
 
 puppeteer.use(StealthPlugin());
+
+// Firebase config from Palta's app bundles
+const firebaseConfig = {
+  apiKey: 'AIzaSyBZVUcH3j2ftMFx2Z_kwAlHa2GdFyyrIf8',
+  authDomain: 'tarjeta-palta.firebaseapp.com',
+  databaseURL: 'https://tarjeta-palta.firebaseio.com',
+  projectId: 'tarjeta-palta',
+  storageBucket: 'tarjeta-palta.appspot.com',
+  messagingSenderId: '216946726905',
+  appId: '1:216946726905:web:ef325b566dfa41bd640f28',
+};
+
+const firebaseApp = initializeApp(firebaseConfig, 'palta-scraper');
+const firebaseAuth = getAuth(firebaseApp);
 
 const SESSION_DIR = path.join(__dirname, '../../data/palta-session');
 const USER_DATA_DIR = path.join(SESSION_DIR, 'chrome-profile');
 const COOKIES_PATH = path.join(SESSION_DIR, 'cookies.json');
 const TOKEN_PATH = path.join(SESSION_DIR, 'auth-token.json');
-const PALTA_API_BASE = 'https://activa-app.palta.app';
+const PALTA_API_BASE = 'https://prod-api.palta.app/api';
 
 // Ensure directories exist
 [SESSION_DIR, USER_DATA_DIR].forEach(dir => {
@@ -51,8 +67,10 @@ class PaltaService {
   private capturedPageCount = 0;
   private io: any = null;
   private isPolling = false;
-  private authToken: string | null = null;  // Captured auth token for direct API mode
+  private authToken: string | null = null;  // Firebase JWT token for direct API mode
   private apiMode = false;  // true = direct API calls (no browser needed)
+  private firebaseUser: User | null = null;  // Firebase user for auto token refresh
+  private tokenRefreshInterval: NodeJS.Timeout | null = null;
 
   setIO(io: any) {
     this.io = io;
@@ -68,6 +86,8 @@ class PaltaService {
       lastPollAt: config.lastPollAt,
       errorMessage: config.errorMessage,
       browserOpen: !!this.browser,
+      apiMode: this.apiMode,
+      mode: this.apiMode ? 'api' : this.browser ? 'browser' : 'disconnected',
       userId: this.userId,
       walletId: this.walletId,
       userName: this.userInfo ? `${this.userInfo.name || ''} ${this.userInfo.lastname || ''}`.trim() : null,
@@ -127,10 +147,11 @@ class PaltaService {
     }
   }
 
-  // Direct API call using saved token (no browser needed!)
+  // Direct API call using Firebase token (no browser needed!)
   private async apiCall(endpoint: string, params?: Record<string, string>): Promise<any> {
     if (!this.authToken) throw new Error('No hay token de autenticación');
-    const url = new URL(endpoint, PALTA_API_BASE);
+    // endpoint should be like '/me', '/wallets', etc. — PALTA_API_BASE already ends with /api
+    const url = new URL(`${PALTA_API_BASE}${endpoint}`);
     if (params) {
       for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
     }
@@ -138,35 +159,98 @@ class PaltaService {
       headers: {
         'Authorization': `Bearer ${this.authToken}`,
         'Accept': 'application/json',
+        'Content-Type': 'application/json',
       },
     });
     if (resp.status === 401) {
-      this.authToken = null;
-      throw new Error('Token expirado. Necesita re-login.');
+      throw new Error('Token expirado (401).');
     }
-    if (!resp.ok) throw new Error(`API error ${resp.status}`);
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => '');
+      throw new Error(`API error ${resp.status}: ${text.substring(0, 200)}`);
+    }
     return resp.json();
   }
 
-  // Try to init using saved token (API-only mode, no browser)
-  async initApiMode(): Promise<{ success: boolean; message: string }> {
-    const token = this.loadToken();
-    if (!token) {
-      return { success: false, message: 'No hay token guardado. Logueate primero localmente.' };
+  // Firebase login: email+password → JWT token (no browser needed!)
+  async firebaseLogin(): Promise<{ success: boolean; message: string }> {
+    const config = dataService.getPaltaConfig();
+    if (!config.email || !config.password) {
+      return { success: false, message: 'Configurá email y password de Palta en Config.' };
     }
-    this.authToken = token;
 
     try {
-      // Test the token
-      const meResp = await this.apiCall('/api/me');
+      console.log(`[Palta] 🔥 Firebase login con ${config.email}...`);
+      dataService.updatePaltaConfig({ status: 'logging_in', errorMessage: '' });
+      this.emitStatus();
+
+      const credential = await signInWithEmailAndPassword(firebaseAuth, config.email, config.password);
+      this.firebaseUser = credential.user;
+      this.authToken = await credential.user.getIdToken();
+      this.saveToken(this.authToken);
+
+      console.log(`[Palta] 🔥 Firebase login exitoso! UID: ${credential.user.uid}`);
+
+      // Start auto token refresh (Firebase tokens expire every 1 hour)
+      this.startTokenRefresh();
+
+      return { success: true, message: 'Firebase login OK' };
+    } catch (err: any) {
+      console.error(`[Palta] 🔥 Firebase login error:`, err.code, err.message);
+      let msg = err.message;
+      if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        msg = 'Password incorrecta. Verificá en Config de Palta.';
+      } else if (err.code === 'auth/user-not-found') {
+        msg = 'Email no encontrado en Palta.';
+      } else if (err.code === 'auth/too-many-requests') {
+        msg = 'Demasiados intentos. Esperá unos minutos.';
+      }
+      dataService.updatePaltaConfig({ status: 'error', errorMessage: msg });
+      this.emitStatus();
+      return { success: false, message: msg };
+    }
+  }
+
+  // Auto-refresh Firebase token every 50 minutes (tokens last 1 hour)
+  private startTokenRefresh() {
+    if (this.tokenRefreshInterval) clearInterval(this.tokenRefreshInterval);
+    this.tokenRefreshInterval = setInterval(async () => {
+      try {
+        if (!this.firebaseUser) return;
+        this.authToken = await this.firebaseUser.getIdToken(true); // force refresh
+        this.saveToken(this.authToken);
+        console.log('[Palta] 🔄 Token renovado automáticamente');
+      } catch (err: any) {
+        console.error(`[Palta] ❌ Error renovando token: ${err.message}`);
+        // Try re-login
+        const relogin = await this.firebaseLogin();
+        if (!relogin.success) {
+          dataService.updatePaltaConfig({ status: 'error', errorMessage: 'Token expirado y re-login falló' });
+          this.emitStatus();
+        }
+      }
+    }, 50 * 60 * 1000); // 50 minutes
+  }
+
+  // Init using Firebase token → Palta API direct calls (no browser!)
+  async initApiMode(): Promise<{ success: boolean; message: string }> {
+    // Step 1: Get Firebase token (login or use existing)
+    if (!this.authToken) {
+      const loginResult = await this.firebaseLogin();
+      if (!loginResult.success) return loginResult;
+    }
+
+    try {
+      // Step 2: Use token to get user info from Palta API
+      const meResp = await this.apiCall('/me');
       if (meResp.data?.user?._id) {
         this.userId = meResp.data.user._id;
         this.userInfo = meResp.data.user;
         console.log(`[Palta] ✅ API mode: logueado como ${this.userInfo.name} ${this.userInfo.lastname}`);
       }
 
-      // Get wallet
-      const walletsResp = await this.apiCall('/api/wallets');
+      // Step 3: Get wallet
+      const walletsResp = await this.apiCall('/wallets');
       if (walletsResp.data?.wallets?.[0]?._id) {
         this.walletId = walletsResp.data.wallets[0]._id;
       }
@@ -174,11 +258,37 @@ class PaltaService {
       this.apiMode = true;
       dataService.updatePaltaConfig({ status: 'running', errorMessage: '' });
       this.emitStatus();
-      return { success: true, message: `API mode activo — ${this.userInfo?.name || 'OK'}` };
+      return { success: true, message: `API mode activo — ${this.userInfo?.name || ''} ${this.userInfo?.lastname || ''}`.trim() };
     } catch (err: any) {
-      this.authToken = null;
+      // If 401, token might be bad — try re-login once
+      if (err.message.includes('401') || err.message.includes('expirado')) {
+        console.log('[Palta] Token rechazado, intentando re-login...');
+        this.authToken = null;
+        const relogin = await this.firebaseLogin();
+        if (relogin.success) {
+          try {
+            const meResp = await this.apiCall('/me');
+            if (meResp.data?.user?._id) {
+              this.userId = meResp.data.user._id;
+              this.userInfo = meResp.data.user;
+            }
+            const walletsResp = await this.apiCall('/wallets');
+            if (walletsResp.data?.wallets?.[0]?._id) {
+              this.walletId = walletsResp.data.wallets[0]._id;
+            }
+            this.apiMode = true;
+            dataService.updatePaltaConfig({ status: 'running', errorMessage: '' });
+            this.emitStatus();
+            return { success: true, message: `API mode activo — ${this.userInfo?.name || 'OK'}` };
+          } catch (retryErr: any) {
+            // fall through
+          }
+        }
+      }
       this.apiMode = false;
-      return { success: false, message: `Token inválido: ${err.message}` };
+      dataService.updatePaltaConfig({ status: 'error', errorMessage: err.message });
+      this.emitStatus();
+      return { success: false, message: `API error: ${err.message}` };
     }
   }
 
@@ -186,12 +296,19 @@ class PaltaService {
   async getActivitiesApi(): Promise<PaltaActivity[]> {
     if (!this.authToken || !this.walletId) throw new Error('API mode no inicializado');
 
+    // Refresh token if Firebase user is available
+    if (this.firebaseUser) {
+      try {
+        this.authToken = await this.firebaseUser.getIdToken();
+      } catch {}
+    }
+
     const allActivities: PaltaActivity[] = [];
     const pages = 3;
 
     for (let page = 1; page <= pages; page++) {
       try {
-        const resp = await this.apiCall(`/api/wallets/${this.walletId}/activities`, {
+        const resp = await this.apiCall(`/wallets/${this.walletId}/activities`, {
           page: String(page),
           limit: '50',
         });
@@ -203,6 +320,22 @@ class PaltaService {
         }
       } catch (err: any) {
         console.error(`[Palta-API] Error página ${page}: ${err.message}`);
+        if (err.message.includes('401')) {
+          // Token expired, try refresh
+          const relogin = await this.firebaseLogin();
+          if (relogin.success) {
+            // Retry this page
+            try {
+              const resp = await this.apiCall(`/wallets/${this.walletId}/activities`, {
+                page: String(page),
+                limit: '50',
+              });
+              if (resp.data?.activities?.length > 0) {
+                allActivities.push(...resp.data.activities);
+              }
+            } catch {}
+          }
+        }
         break;
       }
     }
@@ -319,15 +452,19 @@ class PaltaService {
         return { success: true, message: 'Ya está corriendo (browser mode)' };
       }
 
-      // Try API mode first (no browser needed — uses saved token)
+      // ALWAYS try API mode first (Firebase login, no browser needed!)
       const config = dataService.getPaltaConfig();
-      if (config.headless) {
-        console.log('[Palta] 🚀 Intentando API mode (sin browser)...');
+      if (config.email && config.password) {
+        console.log('[Palta] 🚀 Intentando API mode (Firebase, sin browser)...');
         const apiResult = await this.initApiMode();
         if (apiResult.success) {
-          return { success: true, message: apiResult.message };
+          // Start polling if enabled
+          if (config.enabled) {
+            this.startPolling();
+          }
+          return { success: true, message: `🔥 ${apiResult.message}` };
         }
-        console.log(`[Palta] API mode no disponible: ${apiResult.message}. Intentando browser...`);
+        console.log(`[Palta] API mode falló: ${apiResult.message}. Intentando browser...`);
       }
 
       console.log('[Palta] 🌐 Iniciando navegador...');
@@ -349,7 +486,6 @@ class PaltaService {
       // Check if login is needed
       const currentUrl = this.page!.url();
       if (currentUrl.includes('/auth')) {
-        const config = dataService.getPaltaConfig();
 
         if (savedCookies.length > 0) {
           console.log('[Palta] ⚠️ Cookies expiradas, necesita nuevo login');
@@ -458,8 +594,7 @@ class PaltaService {
       this.emitStatus();
 
       // Start polling if enabled
-      const config = dataService.getPaltaConfig();
-      if (config.enabled) {
+      if (dataService.getPaltaConfig().enabled) {
         this.startPolling();
       }
 
@@ -914,7 +1049,7 @@ class PaltaService {
     setTimeout(() => this.poll(), 2000);
 
     this.pollInterval = setInterval(() => {
-      if (this.browser && this.page) {
+      if (this.apiMode || (this.browser && this.page)) {
         this.poll();
       }
     }, interval);
@@ -940,6 +1075,10 @@ class PaltaService {
       clearInterval(this.keepAliveInterval);
       this.keepAliveInterval = null;
     }
+    if (this.tokenRefreshInterval) {
+      clearInterval(this.tokenRefreshInterval);
+      this.tokenRefreshInterval = null;
+    }
     if (this.browser) {
       try {
         await this.browser.close();
@@ -950,6 +1089,9 @@ class PaltaService {
     this.userId = null;
     this.walletId = null;
     this.userInfo = null;
+    this.authToken = null;
+    this.firebaseUser = null;
+    this.apiMode = false;
     dataService.updatePaltaConfig({ status: 'stopped', errorMessage: '' });
     this.emitStatus();
     console.log('[Palta] 🛑 Servicio detenido');
@@ -968,12 +1110,42 @@ class PaltaService {
     message: string;
     action?: 'none' | 'start' | 'login';
   }> {
+    // API mode check
+    if (this.apiMode && this.authToken) {
+      try {
+        const meResp = await this.apiCall('/me');
+        const userName = meResp.data?.user ? `${meResp.data.user.name || ''} ${meResp.data.user.lastname || ''}`.trim() : this.userInfo?.name;
+        return {
+          ok: true,
+          browserOpen: false,
+          loggedIn: true,
+          canFetchData: true,
+          userName: userName || null,
+          userId: this.userId,
+          walletId: this.walletId,
+          message: `✅ Palta conectada (API mode, sin browser). Usuario: ${userName}`,
+          action: 'none',
+        };
+      } catch (err: any) {
+        return {
+          ok: false,
+          browserOpen: false,
+          loggedIn: false,
+          canFetchData: false,
+          userName: null,
+          userId: this.userId,
+          walletId: this.walletId,
+          message: `API mode error: ${err.message}`,
+          action: 'start',
+        };
+      }
+    }
+
     // 1. ¿Browser abierto?
     if (!this.browser || !this.page) {
-      // Corregir estado inconsistente
       const config = dataService.getPaltaConfig();
       if (config.status === 'running' || config.enabled) {
-        dataService.updatePaltaConfig({ status: 'stopped', enabled: false, errorMessage: 'Browser no está abierto' });
+        dataService.updatePaltaConfig({ status: 'stopped', enabled: false, errorMessage: 'No está conectado' });
         this.emitStatus();
       }
       return {
@@ -984,7 +1156,7 @@ class PaltaService {
         userName: null,
         userId: null,
         walletId: null,
-        message: 'Browser no está abierto. Necesitás iniciar Palta primero.',
+        message: 'Palta no está conectada. Hacé click en Iniciar.',
         action: 'start',
       };
     }
@@ -1072,12 +1244,12 @@ class PaltaService {
   /** Fix stale status on server startup */
   fixStaleStatus() {
     const config = dataService.getPaltaConfig();
-    if ((config.status === 'running' || config.enabled) && !this.browser) {
-      console.log('[Palta] ⚠️ Corrigiendo estado inconsistente: config dice running pero browser no está abierto');
+    if ((config.status === 'running' || config.enabled) && !this.browser && !this.apiMode) {
+      console.log('[Palta] ⚠️ Corrigiendo estado inconsistente');
       dataService.updatePaltaConfig({
         status: 'stopped',
         enabled: false,
-        errorMessage: 'Servidor reiniciado - browser cerrado',
+        errorMessage: 'Servidor reiniciado',
       });
     }
   }
