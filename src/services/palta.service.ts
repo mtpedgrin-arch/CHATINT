@@ -327,8 +327,8 @@ class PaltaService {
         });
         const activities = resp.data?.activities;
         if (activities?.length > 0) {
-          // Filter out commissions — we only want incoming transfers
-          const cashins = activities.filter((a: any) => !a.commission && a.counterparty);
+          // Only cashin (deposits) — no cashouts, no commissions
+          const cashins = activities.filter((a: any) => a.type === 'cashin');
           allActivities.push(...(cashins as PaltaActivity[]));
           console.log(`[Palta-API] Página ${page}: ${activities.length} actividades (${cashins.length} cashins)`);
         } else {
