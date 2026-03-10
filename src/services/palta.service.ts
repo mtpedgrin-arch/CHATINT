@@ -252,18 +252,17 @@ class PaltaService {
     if (this.tokenRefreshInterval) clearInterval(this.tokenRefreshInterval);
     this.tokenRefreshInterval = setInterval(async () => {
       try {
-        if (!this.firebaseUser) return;
-        this.authToken = await this.firebaseUser.getIdToken(true); // force refresh
-        this.saveToken(this.authToken);
-        console.log('[Palta] 🔄 Token renovado automáticamente');
-      } catch (err: any) {
-        console.error(`[Palta] ❌ Error renovando token: ${err.message}`);
-        // Try re-login
-        const relogin = await this.firebaseLogin();
-        if (!relogin.success) {
+        // Must redo full flow: Firebase auth → verifyToken → Palta JWT
+        const result = await this.firebaseLogin();
+        if (result.success) {
+          console.log('[Palta] 🔄 Token Palta renovado automáticamente');
+        } else {
+          console.error(`[Palta] ❌ Error renovando token: ${result.message}`);
           dataService.updatePaltaConfig({ status: 'error', errorMessage: 'Token expirado y re-login falló' });
           this.emitStatus();
         }
+      } catch (err: any) {
+        console.error(`[Palta] ❌ Error renovando token: ${err.message}`);
       }
     }, 50 * 60 * 1000); // 50 minutes
   }
@@ -304,10 +303,10 @@ class PaltaService {
   async getActivitiesApi(): Promise<PaltaActivity[]> {
     if (!this.authToken || !this.walletId) throw new Error('API mode no inicializado');
 
-    // Refresh token if Firebase user is available
+    // Refresh Palta JWT if Firebase user is available (full flow: Firebase → verifyToken)
     if (this.firebaseUser) {
       try {
-        this.authToken = await this.firebaseUser.getIdToken();
+        await this.firebaseLogin();
       } catch {}
     }
 
