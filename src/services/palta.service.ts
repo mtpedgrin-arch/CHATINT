@@ -157,7 +157,7 @@ class PaltaService {
     }
     const resp = await fetch(url.toString(), {
       headers: {
-        'Authorization': `Bearer ${this.authToken}`,
+        'Authorization': this.authToken,  // Palta uses raw token, no "Bearer" prefix
         'Accept': 'application/json',
         'Content-Type': 'application/json',
       },
@@ -172,7 +172,7 @@ class PaltaService {
     return resp.json();
   }
 
-  // Firebase login: email+password → JWT token (no browser needed!)
+  // Firebase login → verifyToken → Palta JWT (no browser needed!)
   async firebaseLogin(): Promise<{ success: boolean; message: string }> {
     const config = dataService.getPaltaConfig();
     if (!config.email || !config.password) {
@@ -186,19 +186,53 @@ class PaltaService {
       dataService.updatePaltaConfig({ status: 'logging_in', errorMessage: '' });
       this.emitStatus();
 
+      // Step 1: Firebase Auth → get Firebase ID token
       const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
       this.firebaseUser = credential.user;
-      this.authToken = await credential.user.getIdToken();
+      const firebaseIdToken = await credential.user.getIdToken();
+      console.log(`[Palta] 🔥 Firebase OK! UID: ${credential.user.uid}`);
+
+      // Step 2: Exchange Firebase token for Palta JWT via verifyToken
+      console.log('[Palta] 🔄 Intercambiando token con Palta API...');
+      const verifyResp = await fetch(`${PALTA_API_BASE}/user/verifyToken`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken: firebaseIdToken }),
+      });
+
+      if (!verifyResp.ok) {
+        const errText = await verifyResp.text().catch(() => '');
+        throw new Error(`verifyToken failed (${verifyResp.status}): ${errText.substring(0, 200)}`);
+      }
+
+      const verifyData: any = await verifyResp.json();
+      if (!verifyData.data?.token) {
+        throw new Error('verifyToken no devolvió token');
+      }
+
+      // Save Palta JWT (this is what the API accepts)
+      this.authToken = verifyData.data.token as string;
       this.saveToken(this.authToken);
 
-      console.log(`[Palta] 🔥 Firebase login exitoso! UID: ${credential.user.uid}`);
+      // Extract user info from verifyToken response
+      const vd = verifyData.data;
+      if (vd._id) {
+        this.userId = vd._id;
+        this.userInfo = { name: vd.name, lastname: vd.lastname, email: vd.email };
+      }
+      if (vd.wallets?.[0]?._id) {
+        this.walletId = vd.wallets[0]._id;
+      }
 
-      // Start auto token refresh (Firebase tokens expire every 1 hour)
+      console.log(`[Palta] ✅ Palta token obtenido! Usuario: ${vd.name} ${vd.lastname}`);
+      console.log(`[Palta]    Wallet: ${this.walletId}, Saldo: $${vd.wallets?.[0]?.amount?.toLocaleString('es-AR') || '?'}`);
+
+      // Start auto token refresh (Palta tokens expire every ~1 hour)
       this.startTokenRefresh();
 
-      return { success: true, message: 'Firebase login OK' };
+      return { success: true, message: 'Firebase + Palta login OK' };
     } catch (err: any) {
-      console.error(`[Palta] 🔥 Firebase login error:`, err.code, err.message);
+      console.error(`[Palta] 🔥 Login error:`, err.code || '', err.message);
       let msg = err.message;
       if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
         msg = 'Password incorrecta. Verificá en Config de Palta.';
@@ -234,64 +268,36 @@ class PaltaService {
     }, 50 * 60 * 1000); // 50 minutes
   }
 
-  // Init using Firebase token → Palta API direct calls (no browser!)
+  // Init using Firebase → Palta API direct calls (no browser!)
   async initApiMode(): Promise<{ success: boolean; message: string }> {
-    // Step 1: Get Firebase token (login or use existing)
+    // firebaseLogin already does: Firebase auth → verifyToken → saves userId, walletId, authToken
     if (!this.authToken) {
       const loginResult = await this.firebaseLogin();
       if (!loginResult.success) return loginResult;
     }
 
-    try {
-      // Step 2: Use token to get user info from Palta API
-      const meResp = await this.apiCall('/me');
-      if (meResp.data?.user?._id) {
-        this.userId = meResp.data.user._id;
-        this.userInfo = meResp.data.user;
-        console.log(`[Palta] ✅ API mode: logueado como ${this.userInfo.name} ${this.userInfo.lastname}`);
-      }
-
-      // Step 3: Get wallet
-      const walletsResp = await this.apiCall('/wallets');
-      if (walletsResp.data?.wallets?.[0]?._id) {
-        this.walletId = walletsResp.data.wallets[0]._id;
-      }
-
-      this.apiMode = true;
-      dataService.updatePaltaConfig({ status: 'running', errorMessage: '' });
-      this.emitStatus();
-      return { success: true, message: `API mode activo — ${this.userInfo?.name || ''} ${this.userInfo?.lastname || ''}`.trim() };
-    } catch (err: any) {
-      // If 401, token might be bad — try re-login once
-      if (err.message.includes('401') || err.message.includes('expirado')) {
-        console.log('[Palta] Token rechazado, intentando re-login...');
-        this.authToken = null;
-        const relogin = await this.firebaseLogin();
-        if (relogin.success) {
-          try {
-            const meResp = await this.apiCall('/me');
-            if (meResp.data?.user?._id) {
-              this.userId = meResp.data.user._id;
-              this.userInfo = meResp.data.user;
-            }
-            const walletsResp = await this.apiCall('/wallets');
-            if (walletsResp.data?.wallets?.[0]?._id) {
-              this.walletId = walletsResp.data.wallets[0]._id;
-            }
-            this.apiMode = true;
-            dataService.updatePaltaConfig({ status: 'running', errorMessage: '' });
-            this.emitStatus();
-            return { success: true, message: `API mode activo — ${this.userInfo?.name || 'OK'}` };
-          } catch (retryErr: any) {
-            // fall through
-          }
-        }
-      }
-      this.apiMode = false;
-      dataService.updatePaltaConfig({ status: 'error', errorMessage: err.message });
-      this.emitStatus();
-      return { success: false, message: `API error: ${err.message}` };
+    if (!this.userId || !this.walletId) {
+      return { success: false, message: 'Login OK pero no se obtuvieron datos de usuario/wallet' };
     }
+
+    // Verify token works by calling /me
+    try {
+      const meResp = await this.apiCall('/me');
+      console.log(`[Palta] ✅ API mode verificado — /me respondió OK`);
+    } catch (err: any) {
+      console.log(`[Palta] ⚠️ /me falló (${err.message}), intentando re-login...`);
+      this.authToken = null;
+      const relogin = await this.firebaseLogin();
+      if (!relogin.success) {
+        this.apiMode = false;
+        return { success: false, message: relogin.message };
+      }
+    }
+
+    this.apiMode = true;
+    dataService.updatePaltaConfig({ status: 'running', errorMessage: '' });
+    this.emitStatus();
+    return { success: true, message: `API mode — ${this.userInfo?.name || ''} ${this.userInfo?.lastname || ''}`.trim() };
   }
 
   // Fetch activities via direct API (no browser)
