@@ -179,12 +179,17 @@ class PaltaService {
       return { success: false, message: 'Configurá email y password de Palta en Config.' };
     }
 
+    // Only show 'logging_in' if not already running (avoid flickering during token refresh)
+    const isRefresh = config.status === 'running' && this.apiMode;
+
     try {
       const email = config.email.trim();
       const password = config.password.trim();
-      console.log(`[Palta] 🔥 Firebase login con ${email}...`);
-      dataService.updatePaltaConfig({ status: 'logging_in', errorMessage: '' });
-      this.emitStatus();
+      console.log(`[Palta] 🔥 Firebase login con ${email}...${isRefresh ? ' (token refresh)' : ''}`);
+      if (!isRefresh) {
+        dataService.updatePaltaConfig({ status: 'logging_in', errorMessage: '' });
+        this.emitStatus();
+      }
 
       // Step 1: Firebase Auth → get Firebase ID token
       const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
