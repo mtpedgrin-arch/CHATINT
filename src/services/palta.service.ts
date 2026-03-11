@@ -804,32 +804,49 @@ class PaltaService {
 
     if (!normalPalta || !normalPayment) return { match: false, type: 'exact' };
 
-    // Exact match
+    // Exact match (same string)
     if (normalPalta === normalPayment) {
       return { match: true, type: 'exact' };
     }
 
-    // Partial match: one contains the other (must be significant — at least 8 chars)
+    // ── SAME WORDS, DIFFERENT ORDER ──
+    // Palta often has "APELLIDO NOMBRE" while OCR has "Nombre Apellido"
+    // e.g. Palta: "SALINAS PABLO DANIEL" vs OCR: "Pablo Daniel Salinas"
+    const paltaWords = normalPalta.split(/\s+/).filter(w => w.length > 1).sort();
+    const paymentWords = normalPayment.split(/\s+/).filter(w => w.length > 1).sort();
+
+    // If ALL words are the same (just reordered), it's an EXACT match
+    if (paltaWords.length >= 2 && paymentWords.length >= 2 &&
+        paltaWords.length === paymentWords.length &&
+        paltaWords.every((w, i) => w === paymentWords[i])) {
+      console.log(`[Palta] Name exact (reordered): "${paltaName}" ↔ "${paymentName}"`);
+      return { match: true, type: 'exact' };
+    }
+
+    // If one name has more words but ALL words of the shorter one are in the longer one
+    // e.g. "Pablo Salinas" vs "Pablo Daniel Salinas" → partial
+    const shorter = paltaWords.length <= paymentWords.length ? paltaWords : paymentWords;
+    const longer = paltaWords.length <= paymentWords.length ? paymentWords : paltaWords;
+    if (shorter.length >= 2 && shorter.every(w => longer.includes(w))) {
+      console.log(`[Palta] Name partial (subset): "${paltaName}" ↔ "${paymentName}" (${shorter.length}/${longer.length} words)`);
+      return { match: true, type: 'partial' };
+    }
+
+    // Partial match: one contains the other as substring (must be significant — at least 8 chars)
     if (normalPalta.length >= 8 && normalPayment.length >= 8) {
       if (normalPalta.includes(normalPayment) || normalPayment.includes(normalPalta)) {
         return { match: true, type: 'partial' };
       }
     }
 
-    // Fuzzy: split names and check word overlap
-    // Common first names like "Pablo", "Juan", "Maria" alone are NOT enough
-    const paltaWords = normalPalta.split(/\s+/).filter(w => w.length > 2);
-    const paymentWords = normalPayment.split(/\s+/).filter(w => w.length > 2);
-
-    // Require at least 2 words in each name to do fuzzy matching
+    // Fuzzy: count overlapping words
+    // Require at least 2 words in each name
     if (paltaWords.length < 2 || paymentWords.length < 2) {
       return { match: false, type: 'exact' };
     }
 
-    // Count matching words (exact word match only, no substring)
-    const matchingWords = paltaWords.filter(pw =>
-      paymentWords.some(payw => pw === payw)
-    );
+    // Count matching words (exact word match only)
+    const matchingWords = paltaWords.filter(pw => paymentWords.some(payw => pw === payw));
 
     // Require at least 2 matching words (e.g., first name + last name)
     // This prevents "Pablo Ezequiel Leguiza" matching "Pablo Daniel Salinas" (only "pablo" matches)
@@ -838,9 +855,9 @@ class PaltaService {
     }
 
     // Special case: if last names match exactly (last word of each), that's a strong signal
-    const paltaLastName = paltaWords[paltaWords.length - 1];
-    const paymentLastName = paymentWords[paymentWords.length - 1];
-    if (paltaLastName === paymentLastName && paltaLastName.length >= 4 && matchingWords.length >= 1) {
+    const paltaLast = paltaWords[paltaWords.length - 1];
+    const paymentLast = paymentWords[paymentWords.length - 1];
+    if (paltaLast === paymentLast && paltaLast.length >= 4 && matchingWords.length >= 1) {
       return { match: true, type: 'fuzzy' };
     }
 
