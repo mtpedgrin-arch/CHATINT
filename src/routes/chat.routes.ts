@@ -800,6 +800,34 @@ router.post('/widget/upload', (req: Request, res: Response) => {
             });
           }
 
+          // Step 1.5: POST-OCR DUPLICATE CHECK — same sender + same amount = likely duplicate comprobante
+          const existingPayments = dataService.getPayments() || [];
+          const ocrDuplicate = existingPayments.find(
+            p => p.chatId === chatId
+              && p.type === 'deposit'
+              && (p.status === 'pending' || p.status === 'approved')
+              && Math.abs(p.amount - ocrResult.amount) < 0.01
+              && p.comprobante?.extractedData?.senderName
+              && p.comprobante.extractedData.senderName.toLowerCase() === ocrResult.senderName.toLowerCase()
+          );
+          if (ocrDuplicate) {
+            console.log(`[OCR+Palta] ⚠️ Duplicado OCR detectado: mismo sender "${ocrResult.senderName}" + monto $${ocrResult.amount} ya existe en pago #${ocrDuplicate.id} (${ocrDuplicate.status})`);
+            const dupMsg = dataService.addChatMessage({
+              chatId,
+              sender: 'bot',
+              senderName: 'Casino 463',
+              text: ocrDuplicate.status === 'approved'
+                ? '⚠️ Este comprobante ya fue procesado anteriormente. Si necesitás hacer otra carga, enviá un comprobante diferente.'
+                : '⚠️ Este comprobante ya está siendo procesado. Por favor esperá a que se verifique.',
+              type: 'text',
+            });
+            if (io) {
+              io.to(`chat:${chatId}`).emit('message:new', dupMsg);
+              io.to('agents').emit('message:new', dupMsg);
+            }
+            return; // Don't create duplicate payment
+          }
+
           // Step 2: Create payment record with extracted data
           const clientId = chat.clientId || null;
           const payment = dataService.createPayment({

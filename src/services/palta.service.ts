@@ -349,7 +349,7 @@ class PaltaService {
     }
 
     const allActivities: PaltaActivity[] = [];
-    const pages = 3;
+    const pages = 5; // 5 pages × 50 = up to 250 transactions
 
     for (let page = 1; page <= pages; page++) {
       try {
@@ -679,7 +679,7 @@ class PaltaService {
       throw new Error('Browser no está abierto');
     }
 
-    const TARGET_PAGES = 3;
+    const TARGET_PAGES = 5;
     this.capturedActivities = null;
     this.capturedPageCount = 0;
 
@@ -903,11 +903,14 @@ class PaltaService {
     // Sort by confidence descending
     results.sort((a, b) => b.confidence - a.confidence);
 
-    // Remove duplicate payment matches (keep highest confidence)
-    const seen = new Set<number>();
+    // Remove duplicates: one payment → one transaction, one transaction → one payment
+    const seenPayments = new Set<number>();
+    const seenTransactions = new Set<number>();
     return results.filter(r => {
-      if (seen.has(r.payment.id)) return false;
-      seen.add(r.payment.id);
+      if (seenPayments.has(r.payment.id)) return false;
+      if (seenTransactions.has(r.transaction.id)) return false;
+      seenPayments.add(r.payment.id);
+      seenTransactions.add(r.transaction.id);
       return true;
     });
   }
@@ -1095,11 +1098,25 @@ class PaltaService {
       const matches = this.findMatches(unmatchedTxs);
       let autoApprovedCount = 0;
 
+      const approvedTxIds = new Set<string>();
       for (const match of matches) {
         // Re-verify payment is still pending (prevent race conditions)
         const freshPayment = dataService.getPaymentById(match.payment.id);
         if (!freshPayment || freshPayment.status !== 'pending') {
           console.log(`[Palta] ⏭️ Skipping match: Pago #${match.payment.id} ya no está pendiente (status: ${freshPayment?.status})`);
+          continue;
+        }
+
+        // FAILSAFE: Re-check that this Palta transaction hasn't been matched already
+        const freshTx = dataService.getPaltaTransactionById?.(match.transaction.id);
+        if (freshTx && freshTx.matched) {
+          console.log(`[Palta] ⏭️ Skipping: Transacción Palta #${match.transaction.id} ya fue matcheada con pago #${freshTx.matchedPaymentId}`);
+          continue;
+        }
+
+        // FAILSAFE: Don't use the same Palta tx for multiple payments in this batch
+        if (approvedTxIds.has(match.transaction.paltaId)) {
+          console.log(`[Palta] ⏭️ Skipping: Transacción Palta ${match.transaction.paltaId} ya usada en este batch`);
           continue;
         }
 
@@ -1110,10 +1127,11 @@ class PaltaService {
           matched: true,
           matchedPaymentId: match.payment.id,
         });
+        approvedTxIds.add(match.transaction.paltaId);
 
-        // Auto-approve if enabled — require >= 85% confidence (exact or partial name match + same day)
-        // Fuzzy-only matches (75%) go to manual review for safety
-        if (config.autoApprove && match.confidence >= 85) {
+        // Auto-approve ONLY with high confidence: exact (100%) or partial (90%+) name match
+        // Fuzzy-only matches (75%) ALWAYS go to manual review — prevents wrong person approval
+        if (config.autoApprove && match.confidence >= 90) {
           const approved = await this.autoApprovePayment(match.payment.id, match.transaction.paltaId);
           if (approved) {
             dataService.updatePaltaTransaction(match.transaction.id, { autoApproved: true });
@@ -1128,7 +1146,7 @@ class PaltaService {
             paymentId: match.payment.id,
             confidence: match.confidence,
             nameMatchType: match.nameMatchType,
-            autoApproved: config.autoApprove && match.confidence >= 85,
+            autoApproved: config.autoApprove && match.confidence >= 90,
           });
         }
       }

@@ -1151,6 +1151,10 @@ class DataService {
     return (this.store.paltaTransactions || []).find(t => t.paltaId === paltaId);
   }
 
+  getPaltaTransactionById(id: string): PaltaTransaction | undefined {
+    return (this.store.paltaTransactions || []).find(t => t.id === id);
+  }
+
   addPaltaTransaction(data: Omit<PaltaTransaction, 'id' | 'capturedAt' | 'matched' | 'matchedPaymentId' | 'autoApproved'>): PaltaTransaction {
     const { v4: uuid } = require('uuid');
     const tx: PaltaTransaction = {
