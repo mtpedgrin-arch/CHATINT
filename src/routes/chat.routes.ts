@@ -815,10 +815,16 @@ router.post('/widget/upload', (req: Request, res: Response) => {
             } else {
               // Try direct match with unmatched Palta transactions
               const unmatchedTxs = dataService.getUnmatchedPaltaTransactions();
-              const directMatch = unmatchedTxs.find(tx =>
-                Math.abs(tx.amount - ocrResult.amount) < 0.01 &&
-                tx.counterpartyName.toLowerCase().includes(ocrResult.senderName.split(' ')[0].toLowerCase())
-              );
+              const ocrNameParts = ocrResult.senderName.toLowerCase().split(/\s+/).filter(p => p.length > 2);
+              const directMatch = unmatchedTxs.find(tx => {
+                // Amount must match within $1 tolerance (OCR can be slightly off)
+                if (Math.abs(tx.amount - ocrResult.amount) > 1) return false;
+                // Name: at least one name part must appear in Palta counterparty (handles order differences)
+                const paltaName = (tx.counterpartyName || '').toLowerCase();
+                const nameMatch = ocrNameParts.some(part => paltaName.includes(part));
+                if (nameMatch) console.log(`[OCR+Palta] Name match: OCR="${ocrResult.senderName}" ↔ Palta="${tx.counterpartyName}" (amount: $${tx.amount})`);
+                return nameMatch;
+              });
 
               if (directMatch) {
                 console.log(`[OCR+Palta] Match directo encontrado: ${directMatch.counterpartyName} $${directMatch.amount}`);

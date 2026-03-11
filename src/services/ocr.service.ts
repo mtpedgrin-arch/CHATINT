@@ -175,6 +175,13 @@ Reglas:
       }
 
       const data: any = await response.json();
+
+      // Check for OpenAI error response (can return 200 with error object)
+      if (data.error) {
+        console.error('[OCR] OpenAI error response:', data.error.message || JSON.stringify(data.error));
+        return this.emptyResult(`OpenAI Error: ${data.error.message || 'Unknown error'}`);
+      }
+
       const content = data.choices?.[0]?.message?.content || '';
 
       console.log('[OCR] Respuesta raw:', content);
