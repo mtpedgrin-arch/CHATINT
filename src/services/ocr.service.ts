@@ -14,6 +14,9 @@ interface OCRResult {
   error?: string;
 }
 
+// Lazy import to avoid circular dependency — dataService may not be ready at import time
+let _getApiKey: (() => string) | null = null;
+
 class OCRService {
   private apiKey: string = '';
 
@@ -22,28 +25,76 @@ class OCRService {
     console.log('[OCR] OpenAI Vision configurado');
   }
 
-  isConfigured(): boolean {
-    return !!this.apiKey;
+  /** Register a function that can dynamically fetch the API key from store */
+  setKeyResolver(resolver: () => string) {
+    _getApiKey = resolver;
   }
 
-  async analyzeComprobante(imagePathOrUrl: string): Promise<OCRResult> {
-    if (!this.apiKey) {
+  /** Get the active API key — checks stored key, then dynamic resolver, then env */
+  private getActiveKey(): string {
+    if (this.apiKey) return this.apiKey;
+    // Try dynamic resolver (reads from store.json live)
+    if (_getApiKey) {
+      const key = _getApiKey();
+      if (key) {
+        this.apiKey = key;
+        console.log('[OCR] API key loaded dynamically from store');
+        return key;
+      }
+    }
+    // Fallback to env
+    const envKey = process.env.OPENAI_API_KEY;
+    if (envKey) {
+      this.apiKey = envKey;
+      console.log('[OCR] API key loaded from environment variable');
+      return envKey;
+    }
+    return '';
+  }
+
+  isConfigured(): boolean {
+    return !!this.getActiveKey();
+  }
+
+  /**
+   * Analyze a comprobante image.
+   * Accepts: file path (/uploads/...), data URI (data:image/...), or raw base64 string with mimeType.
+   */
+  async analyzeComprobante(imagePathOrUrl: string, rawBase64?: string, rawMimeType?: string): Promise<OCRResult> {
+    const apiKey = this.getActiveKey();
+    if (!apiKey) {
       return this.emptyResult('OpenAI API key no configurada');
     }
 
     try {
-      // Read image and convert to base64
       let base64Image: string;
       let mimeType = 'image/jpeg';
 
-      if (imagePathOrUrl.startsWith('/uploads/')) {
-        // Local file
-        const fullPath = path.join(__dirname, '../../public', imagePathOrUrl);
-        if (!fs.existsSync(fullPath)) {
+      if (rawBase64) {
+        // Direct base64 data passed — skip file system entirely
+        base64Image = rawBase64;
+        mimeType = rawMimeType || 'image/jpeg';
+        console.log(`[OCR] Usando imagen base64 directa (${(rawBase64.length / 1024).toFixed(0)}KB)`);
+      } else if (imagePathOrUrl.startsWith('/uploads/')) {
+        // Local file — try multiple base paths for compatibility across environments
+        const possiblePaths = [
+          path.join(__dirname, '../../public', imagePathOrUrl),
+          path.join(process.cwd(), 'public', imagePathOrUrl),
+        ];
+        let fullPath = '';
+        for (const p of possiblePaths) {
+          if (fs.existsSync(p)) {
+            fullPath = p;
+            break;
+          }
+        }
+        if (!fullPath) {
+          console.error(`[OCR] Imagen no encontrada en ninguna ruta:`, possiblePaths);
           return this.emptyResult('Imagen no encontrada: ' + imagePathOrUrl);
         }
         const buffer = fs.readFileSync(fullPath);
         base64Image = buffer.toString('base64');
+        console.log(`[OCR] Imagen leída desde: ${fullPath} (${(buffer.length / 1024).toFixed(0)}KB)`);
 
         // Detect mime type from extension
         const ext = path.extname(fullPath).toLowerCase();
@@ -57,16 +108,16 @@ class OCRService {
         mimeType = matches[1];
         base64Image = matches[2];
       } else {
-        return this.emptyResult('Formato de ruta no soportado');
+        return this.emptyResult('Formato de ruta no soportado: ' + imagePathOrUrl.substring(0, 30));
       }
 
-      console.log(`[OCR] Analizando comprobante: ${imagePathOrUrl.substring(0, 50)}...`);
+      console.log(`[OCR] Analizando comprobante con OpenAI Vision (model: gpt-4o-mini, mime: ${mimeType})...`);
 
       // Call OpenAI Vision API
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
+          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -119,7 +170,7 @@ Reglas:
 
       if (!response.ok) {
         const errorBody = await response.text();
-        console.error('[OCR] Error API:', response.status, errorBody);
+        console.error('[OCR] Error API:', response.status, errorBody.substring(0, 200));
         return this.emptyResult(`Error API OpenAI: ${response.status}`);
       }
 

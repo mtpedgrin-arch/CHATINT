@@ -648,6 +648,7 @@ router.post('/widget/upload', (req: Request, res: Response) => {
     }
 
     const ext = matches[1] === 'jpg' ? 'jpeg' : matches[1];
+    const imgMimeType = `image/${ext}`;
     const base64Data = matches[2];
     const buffer = Buffer.from(base64Data, 'base64');
 
@@ -690,6 +691,7 @@ router.post('/widget/upload', (req: Request, res: Response) => {
     // ── ASYNC: OCR + PALTA AUTO-VERIFY ──
     // Run after responding to the client (non-blocking)
     const chat = dataService.getChatById(chatId);
+    console.log(`[OCR+Palta] Post-upload check: chatId=${chatId}, state=${chat?.state}, ocrConfigured=${ocrService.isConfigured()}`);
     if (chat && (chat.state === 'carga_verificando' || chat.state === 'carga_comprobante') && !ocrService.isConfigured()) {
       // OCR not configured — notify user and agents
       console.log(`[OCR+Palta] OCR no configurado (falta API key de OpenAI). Comprobante queda para revisión manual.`);
@@ -710,8 +712,8 @@ router.post('/widget/upload', (req: Request, res: Response) => {
         try {
           console.log(`[OCR+Palta] Iniciando análisis de comprobante para chat ${chatId}, imagen: ${imageUrl}`);
 
-          // Step 1: OCR - extract data from comprobante
-          const ocrResult = await ocrService.analyzeComprobante(imageUrl);
+          // Step 1: OCR - extract data from comprobante (pass base64 directly to avoid file path issues)
+          const ocrResult = await ocrService.analyzeComprobante(imageUrl, base64Data, imgMimeType);
           console.log(`[OCR+Palta] Resultado OCR: success=${ocrResult.success}, amount=${ocrResult.amount}, sender="${ocrResult.senderName}", error="${ocrResult.error || ''}"`);
 
           if (!ocrResult.success || !ocrResult.amount || !ocrResult.senderName) {

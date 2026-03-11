@@ -187,6 +187,10 @@ console.log(`[OCR] Buscando API key: stored=${storedOpenAIKey ? '****' + storedO
 if (openaiKey) {
   ocrService.configure(openaiKey);
 }
+// Dynamic key resolver — if key changes via admin panel or env, OCR picks it up
+ocrService.setKeyResolver(() => {
+  return dataService.getApiConfig()?.openai?.apiKey || process.env.OPENAI_API_KEY || '';
+});
 app.set('ocrService', ocrService);
 
 // Palta Wallet Auto-Verification
