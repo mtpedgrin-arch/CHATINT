@@ -347,9 +347,10 @@ router.post('/payments/:id/approve', async (req: Request, res: Response) => {
 
       // ── DEPOSIT CREDITS IN CASINO 463.life ──
       const casinoUsername = client.usuario;
+      // Always refresh config from store BEFORE checking configured
+      casinoService.configureFromStore();
       if (casinoUsername && casinoService.configured) {
         try {
-          casinoService.configureFromStore();
           const depositResult = await casinoService.depositCredits(casinoUsername, payment.amount);
           if (depositResult.success) {
             console.log(`[Admin→Casino] ✅ Fichas depositadas en 463.life: ${casinoUsername} +$${payment.amount} (newBalance: ${depositResult.newBalance})`);

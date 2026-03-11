@@ -958,9 +958,10 @@ class PaltaService {
           // ── DEPOSIT CREDITS IN CASINO 463.life ──
           // This is the actual credit deposit to the casino platform
           const casinoUsername = client.usuario;
+          // Always refresh config from store BEFORE checking configured
+          casinoService.configureFromStore();
           if (casinoUsername && casinoService.configured) {
             try {
-              casinoService.configureFromStore();
               const depositResult = await casinoService.depositCredits(casinoUsername, payment.amount);
               if (depositResult.success) {
                 console.log(`[Palta→Casino] ✅ Fichas depositadas en 463.life: ${casinoUsername} +$${payment.amount} (newBalance: ${depositResult.newBalance})`);

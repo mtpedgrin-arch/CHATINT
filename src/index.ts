@@ -193,6 +193,12 @@ ocrService.setKeyResolver(() => {
 });
 app.set('ocrService', ocrService);
 
+// Casino 463.life Service — load config from store at startup
+import { casinoService } from './services/casino.service';
+casinoService.configureFromStore();
+const casinoConfig = dataService.getApiConfig()?.casino;
+console.log(`[Casino] Startup: url=${casinoConfig?.url || 'NO'}, user=${casinoConfig?.user || 'NO'}, configured=${casinoService.configured}`);
+
 // Palta Wallet Auto-Verification
 paltaService.setIO(io);
 app.use('/api/palta', paltaRoutes);
