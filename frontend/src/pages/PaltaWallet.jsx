@@ -59,7 +59,7 @@ export default function PaltaWallet() {
   const loadTransactions = useCallback(async () => {
     try {
       const [txData, sugData, pendData] = await Promise.all([
-        getPaltaTransactions(200),
+        getPaltaTransactions(500),
         getPaltaSuggestions(),
         getPendingPayments(),
       ]);
@@ -654,7 +654,7 @@ function MatchingTab({ suggestions, pendingPayments, transactions, onMatch }) {
               <div style={{ flex: 1 }}>Tipo</div>
               <div style={{ flex: 1.5 }}>Fecha</div>
             </div>
-            {pendingPayments.slice(0, 20).map(p => (
+            {pendingPayments.map(p => (
               <div key={p.id} style={styles.tableRow}>
                 <div style={{ flex: 0.5 }}>#{p.id}</div>
                 <div style={{ flex: 2 }}>{p.clientId || '-'}</div>
@@ -687,7 +687,7 @@ function MatchingTab({ suggestions, pendingPayments, transactions, onMatch }) {
               <div style={{ flex: 1 }}>Monto</div>
               <div style={{ flex: 1.5 }}>Fecha</div>
             </div>
-            {transactions.slice(0, 20).map(tx => (
+            {transactions.map(tx => (
               <div key={tx.id} style={styles.tableRow}>
                 <div style={{ flex: 2 }}>{tx.counterpartyName}</div>
                 <div style={{ flex: 1, color: '#22c55e', fontWeight: 700 }}>
