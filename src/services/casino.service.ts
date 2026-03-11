@@ -53,13 +53,13 @@ class CasinoService {
   private isLoggedIn: boolean = false;
 
   configure(config: { url: string; apiKey: string; user: string; password: string; cajaId: string }) {
-    this.baseUrl = config.url.replace(/\/+$/, '');
-    this.loginUser = config.user;
-    this.loginPassword = config.password;
-    this.cajaId = config.cajaId;
+    this.baseUrl = config.url.replace(/\/+$/, '').trim();
+    this.loginUser = config.user.trim();
+    this.loginPassword = config.password.trim();
+    this.cajaId = (config.cajaId || '').trim();
     this.isLoggedIn = false;
     this.sessionCookie = null;
-    console.log(`[Casino] Configured: ${this.baseUrl}, user: ${this.loginUser}, caja: ${this.cajaId}`);
+    console.log(`[Casino] Configured: url=${this.baseUrl}, user=${this.loginUser}, caja=${this.cajaId}, pwLength=${this.loginPassword.length}`);
   }
 
   configureFromStore() {
@@ -338,40 +338,81 @@ class CasinoService {
 
   async getBalance(username: string): Promise<{ success: boolean; balance?: CasinoBalance; error?: string }> {
     if (!await this.ensureLoggedIn()) {
-      return { success: false, error: 'No se pudo iniciar sesion' };
+      return { success: false, error: 'No se pudo iniciar sesion en casino' };
+    }
+
+    if (!this.cajaId) {
+      return { success: false, error: 'cajaId no configurado — configurar en APIs > Casino 463' };
     }
 
     try {
-      const response = await axios.get(
-        this.url(`/index.php?act=admin&area=users&id=${this.cajaId}`),
-        { headers: this.headers(), validateStatus: () => true }
-      );
+      const usersUrl = this.url(`/index.php?act=admin&area=users&id=${this.cajaId}`);
+      console.log(`[Casino] getBalance: fetching ${usersUrl} for user "${username}"`);
 
+      const response = await axios.get(usersUrl, { headers: this.headers(), validateStatus: () => true });
       const html = typeof response.data === 'string' ? response.data : '';
 
-      // Parse JSON embedded in usersClass
-      const jsonMatch = html.match(/new\s+usersClass\(\s*(\[[\s\S]*?\])\s*,\s*\d+/);
-      if (jsonMatch) {
-        try {
-          const rawUsers = JSON.parse(jsonMatch[1]);
-          const user = rawUsers.find((u: any) => u.login === username || u.id === username);
-          if (user) {
-            const currency = user.currencies?.[0] || 'ARS';
-            return {
-              success: true,
-              balance: {
-                balance: this.parseAmount(user.balances?.[currency]),
-                wager: this.parseAmount(user.wager?.[currency]),
-                withdrawable: this.parseAmount(user.out_balance?.[currency]),
-              },
-            };
-          }
-        } catch {}
+      console.log(`[Casino] getBalance: status=${response.status}, htmlLength=${html.length}`);
+
+      // Check if we got redirected to login page (session expired)
+      if (html.includes('area=login') && html.includes('<input') && html.includes('password')) {
+        console.log(`[Casino] Session expired, forcing re-login...`);
+        this.isLoggedIn = false;
+        this.sessionCookie = null;
+        if (!await this.ensureLoggedIn()) {
+          return { success: false, error: 'Re-login falló' };
+        }
+        // Retry after re-login
+        const retryResp = await axios.get(usersUrl, { headers: this.headers(), validateStatus: () => true });
+        const retryHtml = typeof retryResp.data === 'string' ? retryResp.data : '';
+        return this.parseBalanceFromHtml(retryHtml, username);
       }
 
-      return { success: false, error: `Usuario ${username} no encontrado` };
+      return this.parseBalanceFromHtml(html, username);
     } catch (err: any) {
+      console.error(`[Casino] getBalance error: ${err.message}`);
       return { success: false, error: err.message };
+    }
+  }
+
+  private parseBalanceFromHtml(html: string, username: string): { success: boolean; balance?: CasinoBalance; error?: string } {
+    // Parse JSON embedded in usersClass
+    const jsonMatch = html.match(/new\s+usersClass\(\s*(\[[\s\S]*?\])\s*,\s*\d+/);
+    if (!jsonMatch) {
+      console.log(`[Casino] No usersClass found in HTML (length=${html.length}). First 200 chars: ${html.substring(0, 200)}`);
+      return { success: false, error: 'No se pudo leer la lista de usuarios del casino' };
+    }
+
+    try {
+      const rawUsers = JSON.parse(jsonMatch[1]);
+      console.log(`[Casino] Parsed ${rawUsers.length} users. Looking for "${username}"...`);
+
+      // Case-insensitive search
+      const user = rawUsers.find((u: any) =>
+        (u.login || '').toLowerCase() === username.toLowerCase() ||
+        u.id === username
+      );
+
+      if (user) {
+        const currency = user.currencies?.[0] || 'ARS';
+        console.log(`[Casino] Found user: login=${user.login}, id=${user.id}, balance=${user.balances?.[currency]}`);
+        return {
+          success: true,
+          balance: {
+            balance: this.parseAmount(user.balances?.[currency]),
+            wager: this.parseAmount(user.wager?.[currency]),
+            withdrawable: this.parseAmount(user.out_balance?.[currency]),
+          },
+        };
+      }
+
+      // Not found — log available users for debugging
+      const availableLogins = rawUsers.slice(0, 15).map((u: any) => u.login).filter(Boolean);
+      console.log(`[Casino] User "${username}" NOT found. Available: ${availableLogins.join(', ')}${rawUsers.length > 15 ? '...' : ''}`);
+      return { success: false, error: `Usuario "${username}" no encontrado en caja ${this.cajaId}. Usuarios disponibles: ${availableLogins.slice(0, 5).join(', ')}` };
+    } catch (parseErr: any) {
+      console.error(`[Casino] JSON parse error: ${parseErr.message}`);
+      return { success: false, error: 'Error parseando datos del casino' };
     }
   }
 
@@ -431,64 +472,127 @@ class CasinoService {
 
   private async getUserId(username: string): Promise<string | null> {
     try {
-      const response = await axios.get(
-        this.url(`/index.php?act=admin&area=users&id=${this.cajaId}`),
-        { headers: this.headers(), validateStatus: () => true }
-      );
-
-      const html = typeof response.data === 'string' ? response.data : '';
-
-      // Parse JSON from usersClass
-      const jsonMatch = html.match(/new\s+usersClass\(\s*(\[[\s\S]*?\])\s*,\s*\d+/);
-      if (jsonMatch) {
-        try {
-          const rawUsers = JSON.parse(jsonMatch[1]);
-          const user = rawUsers.find((u: any) => u.login === username);
-          if (user?.id) return user.id;
-        } catch {}
+      if (!this.cajaId) {
+        console.error('[Casino] getUserId: cajaId not configured');
+        return null;
       }
 
-      // Fallback: regex search
-      const esc = this.escapeRegex(username);
-      const idRegex = new RegExp(`"id":"(\\d+)","login":"${esc}"`, 'i');
-      const match = html.match(idRegex);
-      return match ? match[1] : null;
+      const usersUrl = this.url(`/index.php?act=admin&area=users&id=${this.cajaId}`);
+      console.log(`[Casino] getUserId: looking for "${username}" in caja ${this.cajaId}`);
+
+      const response = await axios.get(usersUrl, { headers: this.headers(), validateStatus: () => true });
+      const html = typeof response.data === 'string' ? response.data : '';
+
+      // Check if redirected to login
+      if (html.includes('area=login') && html.includes('password')) {
+        console.log('[Casino] getUserId: session expired, re-logging...');
+        this.isLoggedIn = false;
+        this.sessionCookie = null;
+        if (!await this.ensureLoggedIn()) return null;
+        const retryResp = await axios.get(usersUrl, { headers: this.headers(), validateStatus: () => true });
+        const retryHtml = typeof retryResp.data === 'string' ? retryResp.data : '';
+        return this.findUserIdInHtml(retryHtml, username);
+      }
+
+      return this.findUserIdInHtml(html, username);
     } catch (err: any) {
       console.error('[Casino] getUserId error:', err.message);
       return null;
     }
   }
 
+  private findUserIdInHtml(html: string, username: string): string | null {
+    // Parse JSON from usersClass
+    const jsonMatch = html.match(/new\s+usersClass\(\s*(\[[\s\S]*?\])\s*,\s*\d+/);
+    if (jsonMatch) {
+      try {
+        const rawUsers = JSON.parse(jsonMatch[1]);
+        // Case-insensitive search
+        const user = rawUsers.find((u: any) => (u.login || '').toLowerCase() === username.toLowerCase());
+        if (user?.id) {
+          console.log(`[Casino] getUserId: found "${username}" → id=${user.id}`);
+          return user.id;
+        }
+        const available = rawUsers.slice(0, 10).map((u: any) => u.login).filter(Boolean);
+        console.log(`[Casino] getUserId: "${username}" not in ${rawUsers.length} users. Sample: ${available.join(', ')}`);
+      } catch {}
+    }
+
+    // Fallback: regex search (case-insensitive)
+    const esc = this.escapeRegex(username);
+    const idRegex = new RegExp(`"id":"(\\d+)","login":"${esc}"`, 'i');
+    const match = html.match(idRegex);
+    if (match) {
+      console.log(`[Casino] getUserId: found via regex "${username}" → id=${match[1]}`);
+      return match[1];
+    }
+
+    return null;
+  }
+
   async testConnection(): Promise<{ success: boolean; message: string; details?: any }> {
     if (!this.configured) {
-      return { success: false, message: 'Casino API no configurada. Falta URL, usuario o password.' };
+      return {
+        success: false,
+        message: 'Casino API no configurada. Falta URL, usuario o password.',
+        details: { url: this.baseUrl || 'EMPTY', user: this.loginUser || 'EMPTY', passwordSet: !!this.loginPassword, cajaId: this.cajaId || 'EMPTY' },
+      };
     }
+
+    console.log(`[Casino] Test connection: url=${this.baseUrl}, user=${this.loginUser}, caja=${this.cajaId}`);
 
     const loginResult = await this.login();
     if (!loginResult.success) {
-      return { success: false, message: `Login fallido: ${loginResult.error}` };
+      return { success: false, message: `Login fallido: ${loginResult.error}`, details: { url: this.baseUrl, user: this.loginUser } };
     }
 
     if (this.cajaId) {
       try {
-        const response = await axios.get(
-          this.url(`/index.php?act=admin&area=users&id=${this.cajaId}`),
-          { headers: this.headers(), validateStatus: () => true }
-        );
+        const usersUrl = this.url(`/index.php?act=admin&area=users&id=${this.cajaId}`);
+        console.log(`[Casino] Fetching users from: ${usersUrl}`);
+        const response = await axios.get(usersUrl, { headers: this.headers(), validateStatus: () => true });
         const html = typeof response.data === 'string' ? response.data : '';
-        const hasUsers = html.includes('<table') || html.includes('login') || html.includes('balance');
 
+        console.log(`[Casino] Users response: status=${response.status}, length=${html.length}`);
+
+        // Try to parse users
+        const jsonMatch = html.match(/new\s+usersClass\(\s*(\[[\s\S]*?\])\s*,\s*\d+/);
+        let userCount = 0;
+        let userLogins: string[] = [];
+
+        if (jsonMatch) {
+          try {
+            const rawUsers = JSON.parse(jsonMatch[1]);
+            userCount = rawUsers.length;
+            userLogins = rawUsers.slice(0, 10).map((u: any) => u.login).filter(Boolean);
+            console.log(`[Casino] Found ${userCount} users. First 10: ${userLogins.join(', ')}`);
+          } catch (parseErr: any) {
+            console.error(`[Casino] JSON parse error: ${parseErr.message}`);
+          }
+        } else {
+          console.log(`[Casino] No usersClass JSON found in HTML. Preview: ${html.substring(0, 300)}`);
+        }
+
+        const hasUsers = userCount > 0;
         return {
           success: true,
-          message: 'Conexion exitosa',
-          details: { loginOk: true, cajaAccess: hasUsers, cajaId: this.cajaId, htmlPreview: html.substring(0, 500) },
+          message: hasUsers ? `Conexion exitosa — ${userCount} usuarios encontrados` : 'Login ok pero no se encontraron usuarios',
+          details: {
+            loginOk: true,
+            cajaAccess: hasUsers,
+            cajaId: this.cajaId,
+            userCount,
+            sampleUsers: userLogins,
+            htmlLength: html.length,
+            hasUsersClassJson: !!jsonMatch,
+          },
         };
       } catch (err: any) {
         return { success: true, message: `Login ok, error al acceder a caja: ${err.message}`, details: { loginOk: true, cajaAccess: false } };
       }
     }
 
-    return { success: true, message: 'Login exitoso (sin cajaId configurado)', details: { loginOk: true } };
+    return { success: true, message: 'Login exitoso (sin cajaId configurado)', details: { loginOk: true, cajaId: 'NOT SET' } };
   }
 
   private generateUsername(nombre: string, telefono: string): string {
