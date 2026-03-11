@@ -879,35 +879,79 @@ class PaltaService {
         else if (bestMatch.type === 'partial') confidence = 80;
         else if (bestMatch.type === 'fuzzy') confidence = 75;
 
-        // Bonus: CUIT match (very strong signal — sender CUIT from Palta matches OCR CUIT)
+        // ── CUIT CHECK ──
         const ocrCuit = (payment.comprobante as any)?.extractedData?.cuit || '';
-        if (ocrCuit && tx.counterpartyCuit && this.normalizeString(ocrCuit) === this.normalizeString(tx.counterpartyCuit)) {
-          confidence = Math.min(100, confidence + 5);
-          console.log(`[Palta] 🔑 CUIT match bonus: ${ocrCuit}`);
+        if (ocrCuit && tx.counterpartyCuit) {
+          if (this.normalizeString(ocrCuit) === this.normalizeString(tx.counterpartyCuit)) {
+            confidence = Math.min(100, confidence + 5);
+            console.log(`[Palta] 🔑 CUIT match bonus: ${ocrCuit}`);
+          } else {
+            // CUIT MISMATCH — strong fraud signal, penalize
+            confidence = Math.max(50, confidence - 15);
+            console.log(`[Palta] 🚨 CUIT MISMATCH penalty: OCR=${ocrCuit} vs Palta=${tx.counterpartyCuit}`);
+          }
         }
 
-        // Bonus: time proximity — OCR date vs Palta createdAt within ±10 minutes
+        // ── TIME PROXIMITY (±5 min = strong, ±15 min = weak) ──
         const ocrDate = (payment.comprobante as any)?.extractedData?.date || '';
-        if (ocrDate && tx.createdAt) {
+        const ocrTimeStr = (payment.comprobante as any)?.extractedData?.time || '';
+        if (tx.createdAt) {
           const txTime = new Date(tx.createdAt).getTime();
-          // Try to parse OCR date (formats: "DD/MM/YYYY HH:mm", "DD/MM/YYYY", "YYYY-MM-DD")
           let ocrTime = 0;
-          const dmyMatch = ocrDate.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s*(\d{1,2}):(\d{2})/);
-          if (dmyMatch) {
-            // DD/MM/YYYY HH:mm — assume Argentina timezone (UTC-3)
-            ocrTime = new Date(`${dmyMatch[3]}-${dmyMatch[2].padStart(2,'0')}-${dmyMatch[1].padStart(2,'0')}T${dmyMatch[4].padStart(2,'0')}:${dmyMatch[5]}:00-03:00`).getTime();
+
+          // Method 1: Use separate time field (most precise — HH:mm from OCR)
+          if (ocrTimeStr && ocrDate) {
+            const dmyOnly = ocrDate.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+            const hmOnly = ocrTimeStr.match(/(\d{1,2}):(\d{2})/);
+            if (dmyOnly && hmOnly) {
+              ocrTime = new Date(`${dmyOnly[3]}-${dmyOnly[2].padStart(2,'0')}-${dmyOnly[1].padStart(2,'0')}T${hmOnly[1].padStart(2,'0')}:${hmOnly[2]}:00-03:00`).getTime();
+            }
           }
+          // Method 2: Fallback — parse time from date field (DD/MM/YYYY HH:mm)
+          if (!ocrTime && ocrDate) {
+            const dmyMatch = ocrDate.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s*(\d{1,2}):(\d{2})/);
+            if (dmyMatch) {
+              ocrTime = new Date(`${dmyMatch[3]}-${dmyMatch[2].padStart(2,'0')}-${dmyMatch[1].padStart(2,'0')}T${dmyMatch[4].padStart(2,'0')}:${dmyMatch[5]}:00-03:00`).getTime();
+            }
+          }
+
           if (ocrTime && txTime) {
             const diffMinutes = Math.abs(txTime - ocrTime) / (1000 * 60);
-            if (diffMinutes <= 10) {
-              confidence = Math.min(100, confidence + 5);
-              console.log(`[Palta] ⏰ Time proximity bonus: ${diffMinutes.toFixed(1)} min difference`);
+            if (diffMinutes <= 5) {
+              confidence = Math.min(100, confidence + 7);
+              console.log(`[Palta] ⏰ Strong time match: ${diffMinutes.toFixed(1)} min diff (+7%)`);
+            } else if (diffMinutes <= 15) {
+              confidence = Math.min(100, confidence + 3);
+              console.log(`[Palta] ⏰ Weak time match: ${diffMinutes.toFixed(1)} min diff (+3%)`);
+            } else if (diffMinutes > 60) {
+              // More than 1 hour off — suspicious, penalize
+              confidence = Math.max(50, confidence - 5);
+              console.log(`[Palta] ⏰ Time too far: ${diffMinutes.toFixed(0)} min diff (-5%)`);
             }
           }
         }
 
-        // Bonus: same day (weaker than time proximity but still useful)
-        if (confidence < 100) {
+        // ── CVU/CBU DESTINATION CHECK ──
+        // If OCR extracted the destination CVU and we know our Palta CVU, verify it matches
+        const ocrReceiverCbu = (payment.comprobante as any)?.extractedData?.receiverCbu || '';
+        if (ocrReceiverCbu) {
+          const paltaAccount = this.getAccountInfo();
+          if (paltaAccount && paltaAccount.cvu) {
+            const cleanOcr = ocrReceiverCbu.replace(/[\s\-\.]/g, '');
+            const cleanPalta = paltaAccount.cvu.replace(/[\s\-\.]/g, '');
+            if (cleanOcr === cleanPalta) {
+              confidence = Math.min(100, confidence + 5);
+              console.log(`[Palta] ✅ CVU destino coincide con Palta (+5%)`);
+            } else {
+              // Transfer to different account — very suspicious
+              confidence = Math.max(40, confidence - 20);
+              console.log(`[Palta] 🚨 CVU DESTINO NO COINCIDE: ${cleanOcr.substring(0,8)}... vs ${cleanPalta.substring(0,8)}... (-20%)`);
+            }
+          }
+        }
+
+        // Bonus: same day (weaker, only if no time data available)
+        if (confidence < 100 && !ocrTimeStr && !ocrDate.includes(':')) {
           const txDate = new Date(tx.createdAt).toISOString().split('T')[0];
           const payDate = new Date(payment.createdAt).toISOString().split('T')[0];
           if (txDate === payDate) confidence = Math.min(100, confidence + 2);

@@ -848,6 +848,22 @@ router.post('/widget/upload', (req: Request, res: Response) => {
             return; // Don't create duplicate payment
           }
 
+          // Step 1.7: CVU DESTINATION CHECK — verify comprobante shows transfer TO our account
+          let cvuWarning = '';
+          if (ocrResult.receiverCbu) {
+            const paltaAccount = paltaService.getAccountInfo();
+            if (paltaAccount && paltaAccount.cvu) {
+              const ocrCvu = ocrResult.receiverCbu.replace(/[\s\-\.]/g, '');
+              const paltaCvu = paltaAccount.cvu.replace(/[\s\-\.]/g, '');
+              if (ocrCvu !== paltaCvu) {
+                cvuWarning = `⚠️ CVU destino del comprobante (${ocrCvu.substring(0, 8)}...) NO coincide con nuestra cuenta Palta (${paltaCvu.substring(0, 8)}...)`;
+                console.log(`[OCR+Palta] 🚨 CVU MISMATCH: comprobante=${ocrCvu} vs palta=${paltaCvu}`);
+              } else {
+                console.log(`[OCR+Palta] ✅ CVU destino coincide con nuestra cuenta Palta`);
+              }
+            }
+          }
+
           // Step 2: Create payment record with extracted data
           const clientId = chat.clientId || null;
           const payment = dataService.createPayment({
@@ -866,10 +882,14 @@ router.post('/widget/upload', (req: Request, res: Response) => {
                 cuit: ocrResult.cuit,
                 bankName: ocrResult.bankName,
                 date: ocrResult.date,
+                time: ocrResult.time,
+                receiverName: ocrResult.receiverName,
+                receiverCbu: ocrResult.receiverCbu,
               },
+              cvuWarning,
             },
             aiConfidence: ocrResult.confidence,
-            aiAnalysis: `OCR: ${ocrResult.senderName} — $${ocrResult.amount} — ${ocrResult.bankName} — ${ocrResult.date}`,
+            aiAnalysis: `OCR: ${ocrResult.senderName} → ${ocrResult.receiverName || '?'} — $${ocrResult.amount} — ${ocrResult.bankName} — ${ocrResult.date} ${ocrResult.time}${cvuWarning ? ' — ' + cvuWarning : ''}`,
             processedBy: null,
             rejectionReason: '',
             imageHash,
@@ -885,7 +905,18 @@ router.post('/widget/upload', (req: Request, res: Response) => {
             io.to('agents').emit('payment:new', payment);
           }
 
-          console.log(`[OCR+Palta] Payment #${payment.id} creado: $${ocrResult.amount} de "${ocrResult.senderName}"`);
+          console.log(`[OCR+Palta] Payment #${payment.id} creado: $${ocrResult.amount} de "${ocrResult.senderName}" → "${ocrResult.receiverName || '?'}"`);
+
+          // Alert admins if CVU doesn't match (possible fraud)
+          if (cvuWarning && io) {
+            io.to('agents').emit('fraud:alert', {
+              paymentId: payment.id,
+              chatId,
+              type: 'cvu_mismatch',
+              message: cvuWarning,
+              ocrData: { senderName: ocrResult.senderName, amount: ocrResult.amount, receiverCbu: ocrResult.receiverCbu },
+            });
+          }
 
           // Step 3: Verify with Palta Wallet
           const paltaConfig = dataService.getPaltaConfig();

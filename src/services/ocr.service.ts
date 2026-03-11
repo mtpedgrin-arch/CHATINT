@@ -12,6 +12,10 @@ interface OCRResult {
   rawText: string;
   confidence: number;
   error?: string;
+  // Anti-fraud fields
+  receiverName: string;
+  receiverCbu: string;
+  time: string; // HH:mm extracted separately for precision
 }
 
 // Lazy import to avoid circular dependency — dataService may not be ready at import time
@@ -125,25 +129,32 @@ class OCRService {
           messages: [
             {
               role: 'system',
-              content: `Eres un sistema de OCR especializado en comprobantes de transferencia bancaria argentinos.
-Analiza la imagen del comprobante y extrae la siguiente información en formato JSON:
+              content: `Eres un sistema de OCR anti-fraude especializado en comprobantes de transferencia bancaria argentinos.
+Analiza la imagen del comprobante y extrae TODA la información visible en formato JSON:
 
 {
-  "senderName": "Nombre completo de quien envía la transferencia",
+  "senderName": "Nombre completo de quien ENVÍA (origen)",
+  "receiverName": "Nombre completo de quien RECIBE (destino)",
+  "receiverCbu": "CBU/CVU de destino si es visible",
   "amount": 0,
   "date": "DD/MM/YYYY",
+  "time": "HH:mm",
   "cuit": "CUIT/CUIL del remitente si es visible",
-  "bankName": "Nombre del banco o billetera virtual",
-  "transactionId": "Número de operación/referencia si es visible",
+  "bankName": "Nombre del banco o billetera del REMITENTE",
+  "transactionId": "Código de referencia/COELSA/operación (el más largo y único visible)",
   "confidence": 0.95
 }
 
-Reglas:
-- "amount" debe ser un número sin símbolos ($, ARS, etc). Ej: 5000
+Reglas CRÍTICAS:
+- "senderName" = quien ENVÍA el dinero (origen de la transferencia). Es el dato MÁS IMPORTANTE.
+- "receiverName" = quien RECIBE el dinero (destino). Buscar "Destinatario", "Para", "Beneficiario".
+- "receiverCbu" = CBU o CVU de destino. Puede aparecer como "CBU destino", "CVU", número de 22 dígitos.
+- "amount" debe ser un número sin símbolos ($, ARS, etc). Ej: 5000. Debe ser EXACTO.
+- "date" = fecha en formato DD/MM/YYYY
+- "time" = hora EXACTA de la operación en formato HH:mm (24hs). Buscar "Hora", "Fecha y hora", timestamp.
+- "transactionId" = buscar ID COELSA, número de referencia, código de operación. Elegir el identificador más largo y único.
 - Si no puedes leer un campo, dejalo como string vacío ""
-- "confidence" es un número entre 0 y 1 indicando qué tan seguro estás de la lectura
-- El nombre del remitente es CRÍTICO - debe ser el nombre de quien ENVÍA, no quien recibe
-- El monto es CRÍTICO - debe ser exacto
+- "confidence" es un número entre 0 y 1 indicando qué tan seguro estás de la lectura general
 - Responde SOLO con el JSON, sin explicaciones adicionales`
             },
             {
@@ -204,9 +215,12 @@ Reglas:
         transactionId: parsed.transactionId || '',
         rawText: content,
         confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.5,
+        receiverName: parsed.receiverName || '',
+        receiverCbu: parsed.receiverCbu || '',
+        time: parsed.time || '',
       };
 
-      console.log(`[OCR] ✅ Extraído: "${result.senderName}" — $${result.amount} — ${result.date} — Confianza: ${(result.confidence * 100).toFixed(0)}%`);
+      console.log(`[OCR] ✅ Extraído: "${result.senderName}" → "${result.receiverName}" — $${result.amount} — ${result.date} ${result.time} — CBU destino: ${result.receiverCbu || 'N/A'} — Confianza: ${(result.confidence * 100).toFixed(0)}%`);
 
       return result;
     } catch (err: any) {
@@ -227,6 +241,9 @@ Reglas:
       rawText: '',
       confidence: 0,
       error,
+      receiverName: '',
+      receiverCbu: '',
+      time: '',
     };
   }
 }

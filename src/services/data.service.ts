@@ -71,7 +71,11 @@ export interface Payment {
       cuit: string;
       bankName: string;
       date: string;
+      time?: string;
+      receiverName?: string;
+      receiverCbu?: string;
     } | null;
+    cvuWarning?: string;
   } | null;
   aiConfidence: number;
   aiAnalysis: string;
