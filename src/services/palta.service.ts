@@ -905,7 +905,7 @@ class PaltaService {
 
     // Remove duplicates: one payment → one transaction, one transaction → one payment
     const seenPayments = new Set<number>();
-    const seenTransactions = new Set<number>();
+    const seenTransactions = new Set<string>();
     return results.filter(r => {
       if (seenPayments.has(r.payment.id)) return false;
       if (seenTransactions.has(r.transaction.id)) return false;
