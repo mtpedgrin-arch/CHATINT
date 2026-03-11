@@ -309,7 +309,7 @@ router.put('/payments/:id', (req: Request, res: Response) => {
 });
 
 // Approve a payment (admin action)
-router.post('/payments/:id/approve', (req: Request, res: Response) => {
+router.post('/payments/:id/approve', async (req: Request, res: Response) => {
   const { adminId, adminName } = req.body;
   const payment = dataService.updatePayment(parseInt(req.params.id), {
     status: 'approved',
@@ -344,6 +344,24 @@ router.post('/payments/:id/approve', (req: Request, res: Response) => {
         totalDepositos: client.totalDepositos + payment.amount,
         vip: (client.totalDepositos + payment.amount) >= 10000,
       });
+
+      // ── DEPOSIT CREDITS IN CASINO 463.life ──
+      const casinoUsername = client.usuario;
+      if (casinoUsername && casinoService.configured) {
+        try {
+          casinoService.configureFromStore();
+          const depositResult = await casinoService.depositCredits(casinoUsername, payment.amount);
+          if (depositResult.success) {
+            console.log(`[Admin→Casino] ✅ Fichas depositadas en 463.life: ${casinoUsername} +$${payment.amount} (newBalance: ${depositResult.newBalance})`);
+          } else {
+            console.error(`[Admin→Casino] ❌ Error depositando fichas: ${depositResult.error}`);
+          }
+        } catch (casinoErr: any) {
+          console.error(`[Admin→Casino] ❌ Exception: ${casinoErr.message}`);
+        }
+      } else {
+        console.log(`[Admin→Casino] ⚠️ Casino deposit skipped: username=${casinoUsername || 'N/A'}, configured=${casinoService.configured}`);
+      }
     }
   }
 

@@ -6,6 +6,7 @@ import path from 'path';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, type User } from 'firebase/auth';
 import { dataService, type PaltaTransaction, type Payment } from './data.service';
+import { casinoService } from './casino.service';
 
 puppeteer.use(StealthPlugin());
 
@@ -908,7 +909,7 @@ class PaltaService {
         });
       }
 
-      // Update client balance
+      // Update client balance (local)
       if (payment.clientId && payment.type === 'deposit') {
         const client = dataService.getClientById(payment.clientId);
         if (client) {
@@ -917,6 +918,26 @@ class PaltaService {
             totalDepositos: client.totalDepositos + payment.amount,
             vip: (client.totalDepositos + payment.amount) >= 10000,
           });
+
+          // ── DEPOSIT CREDITS IN CASINO 463.life ──
+          // This is the actual credit deposit to the casino platform
+          const casinoUsername = client.usuario;
+          if (casinoUsername && casinoService.configured) {
+            try {
+              casinoService.configureFromStore();
+              const depositResult = await casinoService.depositCredits(casinoUsername, payment.amount);
+              if (depositResult.success) {
+                console.log(`[Palta→Casino] ✅ Fichas depositadas en 463.life: ${casinoUsername} +$${payment.amount} (newBalance: ${depositResult.newBalance})`);
+              } else {
+                console.error(`[Palta→Casino] ❌ Error depositando fichas en 463.life: ${depositResult.error}`);
+                // Still continue with approval — admin can manually fix casino balance
+              }
+            } catch (casinoErr: any) {
+              console.error(`[Palta→Casino] ❌ Exception depositando fichas: ${casinoErr.message}`);
+            }
+          } else {
+            console.log(`[Palta→Casino] ⚠️ Casino deposit skipped: username=${casinoUsername || 'N/A'}, configured=${casinoService.configured}`);
+          }
         }
       }
 
