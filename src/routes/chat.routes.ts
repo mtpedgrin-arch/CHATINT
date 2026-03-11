@@ -659,13 +659,27 @@ router.post('/widget/upload', (req: Request, res: Response) => {
     }
 
     // ── DUPLICATE COMPROBANTE DETECTION ──
-    // Generate hash from image content to detect re-uploads of the same comprobante
+    // Level 1: Exact image hash (catches identical re-uploads)
     const imageHash = crypto.createHash('sha256').update(buffer).digest('hex').substring(0, 16);
-    const existingPayment = (dataService.getPayments() || []).find(
-      p => p.imageHash === imageHash && (p.status === 'pending' || p.status === 'approved')
+    const allPayments = dataService.getPayments() || [];
+    const hashDuplicate = allPayments.find(
+      p => p.imageHash === imageHash && p.imageHash !== '' && !p.imageHash.startsWith('ocr-')
+        && (p.status === 'pending' || p.status === 'approved')
     );
+
+    // Level 2: Same chat + recent upload (within 10 minutes) — catches re-uploads with slight re-compression
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const recentDuplicate = !hashDuplicate ? allPayments.find(
+      p => p.chatId === chatId
+        && (p.status === 'pending' || p.status === 'approved')
+        && p.type === 'deposit'
+        && p.createdAt > tenMinutesAgo
+    ) : null;
+
+    const existingPayment = hashDuplicate || recentDuplicate;
     if (existingPayment) {
-      console.log(`[UPLOAD] ⚠️ Comprobante duplicado detectado: hash=${imageHash}, payment #${existingPayment.id} (${existingPayment.status})`);
+      const reason = hashDuplicate ? 'hash match' : 'same chat within 10min';
+      console.log(`[UPLOAD] ⚠️ Comprobante duplicado detectado (${reason}): payment #${existingPayment.id} (${existingPayment.status})`);
       const io = req.app.get('io');
       const dupMsg = dataService.addChatMessage({
         chatId,
