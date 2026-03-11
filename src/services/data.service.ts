@@ -113,7 +113,7 @@ export interface ApiConfig {
 
 export interface Account {
   id: number;
-  tipo: 'telepagos' | 'manual';
+  tipo: 'palta' | 'manual';
   alias: string;
   cbu: string;
   titular: string;

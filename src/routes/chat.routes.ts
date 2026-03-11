@@ -440,7 +440,11 @@ function processAutomation(chatId: string, text: string, io: any, messageType: s
 
   const accounts = dataService.getAccounts();
   const settings = dataService.getSettings();
-  const primaryAccount = accounts.find(a => a.estatus === 'active') || accounts[0];
+  // Use Palta account data if connected, otherwise fallback to manual accounts
+  const paltaAccount = paltaService.getAccountInfo();
+  const primaryAccount = paltaAccount
+    ? { cbu: paltaAccount.cvu, alias: paltaAccount.alias, titular: paltaAccount.titular, cuit: paltaAccount.cuit }
+    : accounts.find(a => a.estatus === 'active') || accounts[0];
 
   // ── GLOBAL: "Volver" from any state resets to main menu ──
   const isBack = normalized === 'volver' || normalized === 'menu' || normalized === 'inicio' || normalized === 'cancelar' || normalized === '__volver__';

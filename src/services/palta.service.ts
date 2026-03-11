@@ -71,6 +71,9 @@ class PaltaService {
   private apiMode = false;  // true = direct API calls (no browser needed)
   private firebaseUser: User | null = null;  // Firebase user for auto token refresh
   private tokenRefreshInterval: NodeJS.Timeout | null = null;
+  private accountCvu: string | null = null;
+  private accountAlias: string | null = null;
+  private accountCuit: string | null = null;
 
   setIO(io: any) {
     this.io = io;
@@ -91,6 +94,18 @@ class PaltaService {
       userId: this.userId,
       walletId: this.walletId,
       userName: this.userInfo ? `${this.userInfo.name || ''} ${this.userInfo.lastname || ''}`.trim() : null,
+      accountInfo: this.getAccountInfo(),
+    };
+  }
+
+  // Get Palta account details (CVU, alias, titular, CUIT) for deposit flow
+  getAccountInfo(): { cvu: string; alias: string; titular: string; cuit: string } | null {
+    if (!this.apiMode || !this.userInfo) return null;
+    return {
+      cvu: this.accountCvu || '',
+      alias: this.accountAlias || '',
+      titular: `${this.userInfo.name || ''} ${this.userInfo.lastname || ''}`.trim(),
+      cuit: this.accountCuit || '',
     };
   }
 
@@ -224,6 +239,9 @@ class PaltaService {
       if (vd._id) {
         this.userId = vd._id;
         this.userInfo = { name: vd.name, lastname: vd.lastname, email: vd.email };
+        this.accountCvu = vd.cvu || null;
+        this.accountAlias = vd.alias || null;
+        this.accountCuit = vd.cuit || null;
       }
       if (vd.wallets?.[0]?._id) {
         this.walletId = vd.wallets[0]._id;
@@ -231,6 +249,20 @@ class PaltaService {
 
       console.log(`[Palta] ✅ Palta token obtenido! Usuario: ${vd.name} ${vd.lastname}`);
       console.log(`[Palta]    Wallet: ${this.walletId}, Saldo: $${vd.wallets?.[0]?.amount?.toLocaleString('es-AR') || '?'}`);
+
+      // Fetch full account details from /me (CVU, alias, CUIT not in verifyToken)
+      if (!this.accountCvu) {
+        try {
+          const meResp = await this.apiCall('/me');
+          const user = meResp.data?.user;
+          if (user) {
+            this.accountCvu = user.cvu || null;
+            this.accountAlias = user.alias || null;
+            this.accountCuit = user.cuit || null;
+            console.log(`[Palta]    CVU: ${this.accountCvu}, Alias: ${this.accountAlias}`);
+          }
+        } catch {}
+      }
 
       // Start auto token refresh (Palta tokens expire every ~1 hour)
       this.startTokenRefresh();
