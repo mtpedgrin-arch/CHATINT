@@ -440,8 +440,8 @@ function processAutomation(chatId: string, text: string, io: any, messageType: s
 
   const accounts = dataService.getAccounts();
   const settings = dataService.getSettings();
-  // Use Palta account data if connected, otherwise fallback to manual accounts
-  const paltaAccount = paltaService.getAccountInfo();
+  // Use Palta account data if mode is 'auto' and connected, otherwise manual accounts
+  const paltaAccount = settings.accountMode === 'auto' ? paltaService.getAccountInfo() : null;
   const primaryAccount = paltaAccount
     ? { cbu: paltaAccount.cvu, alias: paltaAccount.alias, titular: paltaAccount.titular, cuit: paltaAccount.cuit }
     : accounts.find(a => a.estatus === 'active') || accounts[0];

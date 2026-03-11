@@ -129,7 +129,7 @@ export interface Settings {
   siteName: string;
   siteUrl: string;
   chatMode: 'auto' | 'manual';
-  telepagosAI: boolean;
+  accountMode: 'auto' | 'manual';
   minRetiro: number;
   minDeposito: number;
   bonoBienvenida: string;
@@ -376,7 +376,7 @@ class DataService {
             openai: { apiKey: '', model: 'gpt-4o-mini' },
           },
           accounts: [],
-          settings: { siteName: 'Casino 463', siteUrl: '', chatMode: 'auto' as const, telepagosAI: false, minRetiro: 0, minDeposito: 0, bonoBienvenida: '', timezone: 'America/Argentina/Buenos_Aires', buttonOptions: { carga: { type: 'option' as const, link: '', enabled: true }, retiro: { type: 'option' as const, link: '', enabled: true }, soporte: { type: 'option' as const, link: '', enabled: true }, cuponera: { type: 'link' as const, link: 'https://463.life', enabled: true } }, modalConfig: {} as any },
+          settings: { siteName: 'Casino 463', siteUrl: '', chatMode: 'auto' as const, accountMode: 'auto' as const, minRetiro: 0, minDeposito: 0, bonoBienvenida: '', timezone: 'America/Argentina/Buenos_Aires', buttonOptions: { carga: { type: 'option' as const, link: '', enabled: true }, retiro: { type: 'option' as const, link: '', enabled: true }, soporte: { type: 'option' as const, link: '', enabled: true }, cuponera: { type: 'link' as const, link: 'https://463.life', enabled: true } }, modalConfig: {} as any },
           chats: [], chatMessages: {}, payments: [], labels: [],
           pushSubscriptions: [], sentNotifications: [],
           popupMessages: [], popupTemplates: [],
@@ -410,6 +410,12 @@ class DataService {
       // Ensure apiConfig.openai exists (backward compat)
       if (data.apiConfig && !data.apiConfig.openai) {
         data.apiConfig.openai = { apiKey: '', model: 'gpt-4o-mini' };
+      }
+
+      // Migrate telepagosAI → accountMode
+      if (data.settings && !data.settings.accountMode) {
+        data.settings.accountMode = (data.settings as any).telepagosAI ? 'auto' : 'auto';
+        delete (data.settings as any).telepagosAI;
       }
 
       // Fix: ensure admin users have a valid bcrypt hash for "123456"

@@ -243,12 +243,12 @@ router.put('/settings', (req: Request, res: Response) => {
 // ── PLATFORM TOKEN / PROCESSING MODE ─────────
 router.get('/platform-token/processing-mode', (_req: Request, res: Response) => {
   const settings = dataService.getSettings();
-  res.json({ mode: settings.telepagosAI ? 'ai' : 'manual' });
+  res.json({ mode: settings.accountMode || 'auto' });
 });
 
 router.put('/platform-token/processing-mode', (req: Request, res: Response) => {
   const { mode } = req.body;
-  dataService.updateSettings({ telepagosAI: mode === 'ai' });
+  dataService.updateSettings({ accountMode: mode === 'auto' ? 'auto' : 'manual' });
   res.json({ mode });
 });
 

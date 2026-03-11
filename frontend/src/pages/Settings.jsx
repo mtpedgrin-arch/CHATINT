@@ -11,7 +11,7 @@ const defaultSettings = {
   },
   chat: {
     chatMode: 'manual',
-    telepagosAI: false,
+    accountMode: 'auto',
   },
   limits: {
     minRetiro: '',
@@ -60,7 +60,7 @@ export default function Settings() {
         },
         chat: {
           chatMode: data.chat?.chatMode || data.chatMode || 'manual',
-          telepagosAI: data.chat?.telepagosAI ?? data.telepagosAI ?? false,
+          accountMode: data.chat?.accountMode || data.accountMode || 'auto',
         },
         limits: {
           minRetiro: data.limits?.minRetiro ?? data.minRetiro ?? '',
@@ -243,21 +243,21 @@ export default function Settings() {
               </span>
             </div>
             <div className="form-group">
-              <label>Telepagos AI</label>
+              <label>Modo de cuenta</label>
               <div className="toggle-group">
                 <button
                   type="button"
-                  className={`toggle-btn ${!settings.chat.telepagosAI ? 'active' : ''}`}
-                  onClick={() => handleChange('chat', 'telepagosAI', false)}
+                  className={`toggle-btn ${settings.chat.accountMode === 'manual' ? 'active' : ''}`}
+                  onClick={() => handleChange('chat', 'accountMode', 'manual')}
                 >
-                  Desactivado
+                  Manual
                 </button>
                 <button
                   type="button"
-                  className={`toggle-btn ${settings.chat.telepagosAI ? 'active' : ''}`}
-                  onClick={() => handleChange('chat', 'telepagosAI', true)}
+                  className={`toggle-btn ${settings.chat.accountMode === 'auto' ? 'active' : ''}`}
+                  onClick={() => handleChange('chat', 'accountMode', 'auto')}
                 >
-                  Activado
+                  Automatica (Palta)
                 </button>
               </div>
             </div>

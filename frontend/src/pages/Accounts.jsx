@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getAccounts, createAccount, updateAccount, deleteAccount, getPaltaStatus } from '../api';
+import { getAccounts, createAccount, updateAccount, deleteAccount, getPaltaStatus, getProcessingMode, updateProcessingMode } from '../api';
 import { useToast } from '../context/ToastContext';
 import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -30,6 +30,7 @@ export default function Accounts() {
 
   // Palta live data
   const [paltaStatus, setPaltaStatus] = useState(null);
+  const [accountMode, setAccountMode] = useState('auto');
 
   const fetchAccounts = async () => {
     try {
@@ -52,9 +53,29 @@ export default function Accounts() {
     }
   };
 
+  const fetchAccountMode = async () => {
+    try {
+      const data = await getProcessingMode();
+      setAccountMode(data.mode || 'auto');
+    } catch {}
+  };
+
+  const toggleAccountMode = async (mode) => {
+    try {
+      await updateProcessingMode(mode);
+      setAccountMode(mode);
+      if (mode === 'manual') setActiveTab('manual');
+      if (mode === 'auto') setActiveTab('palta');
+      toast(mode === 'auto' ? 'Modo automatico (Palta) activado' : 'Modo manual activado');
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  };
+
   useEffect(() => {
     fetchAccounts();
     fetchPaltaStatus();
+    fetchAccountMode();
     const interval = setInterval(fetchPaltaStatus, 15000);
     return () => clearInterval(interval);
   }, []);
@@ -153,6 +174,34 @@ export default function Accounts() {
         <div className="stat-card">
           <span className="stat-label">Activas</span>
           <span className="stat-value">{stats.activas}</span>
+        </div>
+      </div>
+
+      {/* Account Mode Switch */}
+      <div className="card" style={{ padding: '1rem 1.5rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ fontWeight: 600, fontSize: '1rem' }}>Modo de procesamiento</div>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-sec)', marginTop: 2 }}>
+            {accountMode === 'auto'
+              ? 'Los datos de cuenta se obtienen automaticamente de Palta.'
+              : 'Se usa la primera cuenta manual activa para depositos.'}
+          </div>
+        </div>
+        <div className="toggle-group">
+          <button
+            type="button"
+            className={`toggle-btn ${accountMode === 'manual' ? 'active' : ''}`}
+            onClick={() => toggleAccountMode('manual')}
+          >
+            Manual
+          </button>
+          <button
+            type="button"
+            className={`toggle-btn ${accountMode === 'auto' ? 'active' : ''}`}
+            onClick={() => toggleAccountMode('auto')}
+          >
+            Automatica (Palta)
+          </button>
         </div>
       </div>
 
