@@ -932,42 +932,22 @@ router.post('/widget/upload', (req: Request, res: Response) => {
             if (updatedPayment && updatedPayment.status === 'approved') {
               console.log(`[OCR+Palta] ✅ Payment #${payment.id} auto-aprobado vía Palta!`);
             } else {
-              // Try direct match with unmatched Palta transactions
-              const unmatchedTxs = dataService.getUnmatchedPaltaTransactions();
-              const ocrNameParts = ocrResult.senderName.toLowerCase().split(/\s+/).filter(p => p.length > 2);
-              const directMatch = unmatchedTxs.find(tx => {
-                // Amount must match within $1 tolerance (OCR can be slightly off)
-                if (Math.abs(tx.amount - ocrResult.amount) > 1) return false;
-                // Name: at least one name part must appear in Palta counterparty (handles order differences)
-                const paltaName = (tx.counterpartyName || '').toLowerCase();
-                const nameMatch = ocrNameParts.some(part => paltaName.includes(part));
-                if (nameMatch) console.log(`[OCR+Palta] Name match: OCR="${ocrResult.senderName}" ↔ Palta="${tx.counterpartyName}" (amount: $${tx.amount})`);
-                return nameMatch;
+              // Poll already ran findMatches() with full confidence scoring
+              // If it didn't auto-approve, it means confidence was below threshold
+              // Let the periodic poll loop handle it — DON'T bypass confidence checks
+              console.log(`[OCR+Palta] Poll no auto-aprobó. Queda pendiente para matching periódico o revisión manual.`);
+
+              // Send waiting message
+              const waitMsg = dataService.addChatMessage({
+                chatId,
+                sender: 'bot',
+                senderName: 'Casino 463',
+                text: `📋 Recibimos tu comprobante por $${ocrResult.amount.toLocaleString('es-AR')}. Estamos verificando la transferencia. Te avisamos en unos minutos. 🔍`,
+                type: 'text',
               });
-
-              if (directMatch) {
-                console.log(`[OCR+Palta] Match directo encontrado: ${directMatch.counterpartyName} $${directMatch.amount}`);
-                await paltaService.autoApprovePayment(payment.id, directMatch.paltaId);
-                dataService.updatePaltaTransaction(directMatch.id, {
-                  matched: true,
-                  matchedPaymentId: payment.id,
-                  autoApproved: true,
-                });
-              } else {
-                console.log(`[OCR+Palta] No se encontró match en Palta. Queda pendiente para revisión manual.`);
-
-                // Send waiting message
-                const waitMsg = dataService.addChatMessage({
-                  chatId,
-                  sender: 'bot',
-                  senderName: 'Casino 463',
-                  text: `📋 Recibimos tu comprobante por $${ocrResult.amount.toLocaleString('es-AR')}. Estamos verificando la transferencia. Te avisamos en unos minutos. 🔍`,
-                  type: 'text',
-                });
-                if (io) {
-                  io.to(`chat:${chatId}`).emit('message:new', waitMsg);
-                  io.to('agents').emit('message:new', waitMsg);
-                }
+              if (io) {
+                io.to(`chat:${chatId}`).emit('message:new', waitMsg);
+                io.to('agents').emit('message:new', waitMsg);
               }
             }
           } else {

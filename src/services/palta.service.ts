@@ -988,7 +988,62 @@ class PaltaService {
       const payment = dataService.getPaymentById(paymentId);
       if (!payment || payment.status !== 'pending') return false;
 
-      // Update payment
+      // ── STEP 1: ATTEMPT CASINO DEPOSIT FIRST (before marking as approved) ──
+      let casinoDepositOk = false;
+      let casinoSkipped = false;
+
+      if (payment.clientId && payment.type === 'deposit') {
+        const client = dataService.getClientById(payment.clientId);
+        if (client) {
+          const casinoUsername = client.usuario;
+          // Always refresh config from store BEFORE checking configured
+          casinoService.configureFromStore();
+
+          if (casinoUsername && casinoService.configured) {
+            try {
+              console.log(`[Palta→Casino] Intentando depositar fichas: ${casinoUsername} +$${payment.amount}...`);
+              const depositResult = await casinoService.depositCredits(casinoUsername, payment.amount);
+              if (depositResult.success) {
+                console.log(`[Palta→Casino] ✅ Fichas depositadas en 463.life: ${casinoUsername} +$${payment.amount} (newBalance: ${depositResult.newBalance})`);
+                casinoDepositOk = true;
+              } else {
+                console.error(`[Palta→Casino] ❌ Error depositando fichas: ${depositResult.error}`);
+                // RETRY once after re-login
+                console.log(`[Palta→Casino] 🔄 Reintentando después de re-login...`);
+                const retryResult = await casinoService.depositCredits(casinoUsername, payment.amount);
+                if (retryResult.success) {
+                  console.log(`[Palta→Casino] ✅ Retry exitoso: ${casinoUsername} +$${payment.amount}`);
+                  casinoDepositOk = true;
+                } else {
+                  console.error(`[Palta→Casino] ❌ Retry también falló: ${retryResult.error}`);
+                }
+              }
+            } catch (casinoErr: any) {
+              console.error(`[Palta→Casino] ❌ Exception depositando fichas: ${casinoErr.message}`);
+            }
+          } else {
+            console.log(`[Palta→Casino] ⚠️ Casino deposit skipped: username=${casinoUsername || 'N/A'}, configured=${casinoService.configured}`);
+            casinoSkipped = true;
+          }
+        }
+      }
+
+      // If casino is configured but deposit FAILED → don't approve, leave pending for manual review
+      if (!casinoDepositOk && !casinoSkipped) {
+        console.error(`[Palta→Casino] ❌ Casino deposit falló — pago #${paymentId} queda PENDIENTE para revisión manual`);
+        // Notify admins about the failed deposit
+        if (this.io) {
+          this.io.to('agents').emit('casino:deposit-failed', {
+            paymentId,
+            amount: payment.amount,
+            clientId: payment.clientId,
+            reason: 'Casino deposit failed after retry',
+          });
+        }
+        return false; // DON'T approve — fichas no se depositaron
+      }
+
+      // ── STEP 2: NOW mark payment as approved (casino deposit succeeded or was skipped) ──
       dataService.updatePayment(paymentId, {
         status: 'approved',
         processedBy: 'Palta Auto-Verify',
@@ -1000,7 +1055,7 @@ class PaltaService {
         dataService.addActivity({
           clientId: payment.clientId,
           action: 'deposit',
-          metadata: { paymentId, amount: payment.amount, type: 'deposit', approvedBy: 'Palta Auto-Verify', paltaTxId },
+          metadata: { paymentId, amount: payment.amount, type: 'deposit', approvedBy: 'Palta Auto-Verify', paltaTxId, casinoDepositOk },
           sessionId: '',
         });
         dataService.addActivity({
@@ -1020,27 +1075,6 @@ class PaltaService {
             totalDepositos: client.totalDepositos + payment.amount,
             vip: (client.totalDepositos + payment.amount) >= 10000,
           });
-
-          // ── DEPOSIT CREDITS IN CASINO 463.life ──
-          // This is the actual credit deposit to the casino platform
-          const casinoUsername = client.usuario;
-          // Always refresh config from store BEFORE checking configured
-          casinoService.configureFromStore();
-          if (casinoUsername && casinoService.configured) {
-            try {
-              const depositResult = await casinoService.depositCredits(casinoUsername, payment.amount);
-              if (depositResult.success) {
-                console.log(`[Palta→Casino] ✅ Fichas depositadas en 463.life: ${casinoUsername} +$${payment.amount} (newBalance: ${depositResult.newBalance})`);
-              } else {
-                console.error(`[Palta→Casino] ❌ Error depositando fichas en 463.life: ${depositResult.error}`);
-                // Still continue with approval — admin can manually fix casino balance
-              }
-            } catch (casinoErr: any) {
-              console.error(`[Palta→Casino] ❌ Exception depositando fichas: ${casinoErr.message}`);
-            }
-          } else {
-            console.log(`[Palta→Casino] ⚠️ Casino deposit skipped: username=${casinoUsername || 'N/A'}, configured=${casinoService.configured}`);
-          }
         }
       }
 
@@ -1054,12 +1088,16 @@ class PaltaService {
           });
         }
 
-        // Send confirmation message
+        // Send confirmation message — DIFFERENT message if casino was skipped
+        const confirmText = casinoDepositOk
+          ? `✅ ¡Fichas cargadas automáticamente! Se verificó tu transferencia y se acreditaron $${payment.amount.toLocaleString()} en tu cuenta.\n\n¿En qué más podemos ayudarte?`
+          : `✅ Transferencia verificada por $${payment.amount.toLocaleString()}. Un administrador completará la carga de fichas en breve.\n\n¿En qué más podemos ayudarte?`;
+
         const confirmMsg = dataService.addChatMessage({
           chatId: payment.chatId,
           sender: 'bot',
           senderName: 'Casino 463',
-          text: `✅ ¡Fichas cargadas automáticamente! Se verificó tu transferencia en Palta y se acreditaron $${payment.amount.toLocaleString()} en tu cuenta.\n\n¿En qué más podemos ayudarte?`,
+          text: confirmText,
           type: 'text',
         });
 
@@ -1067,10 +1105,12 @@ class PaltaService {
           this.io.to(`chat:${payment.chatId}`).emit('message:new', confirmMsg);
           this.io.to('agents').emit('message:new', confirmMsg);
           this.io.to('agents').emit('payment:approved', payment);
-          // Emit to BOTH chat and client rooms for popup reliability
-          this.io.to(`chat:${payment.chatId}`).emit('payment:approved', payment);
-          if (payment.clientId) {
-            this.io.to(`client:${payment.clientId}`).emit('payment:approved', payment);
+          // Only emit FICHAS CARGADAS popup if casino deposit actually succeeded
+          if (casinoDepositOk) {
+            this.io.to(`chat:${payment.chatId}`).emit('payment:approved', payment);
+            if (payment.clientId) {
+              this.io.to(`client:${payment.clientId}`).emit('payment:approved', payment);
+            }
           }
           this.io.to(`chat:${payment.chatId}`).emit('chat:state-changed', { chatId: payment.chatId, state: 'options' });
           this.io.to('agents').emit('chat:updated', { chatId: payment.chatId });

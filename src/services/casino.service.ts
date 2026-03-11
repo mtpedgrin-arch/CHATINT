@@ -253,7 +253,19 @@ class CasinoService {
   }
 
   async depositCredits(usernameOrId: string, amount: number): Promise<{ success: boolean; newBalance?: number; error?: string }> {
-    return this.changeBalance(usernameOrId, amount, 'in');
+    const result = await this.changeBalance(usernameOrId, amount, 'in');
+    // If deposit failed with session/access error, force re-login and retry once
+    if (!result.success && (result.error?.includes('sesion') || result.error?.includes('No access') || result.error?.includes('login'))) {
+      console.log(`[Casino] Session expired, forcing re-login...`);
+      this.isLoggedIn = false;
+      this.sessionCookie = null;
+      const loginResult = await this.login();
+      if (loginResult.success) {
+        console.log(`[Casino] Re-login successful, retrying deposit...`);
+        return this.changeBalance(usernameOrId, amount, 'in');
+      }
+    }
+    return result;
   }
 
   async withdrawCredits(usernameOrId: string, amount: number): Promise<{ success: boolean; newBalance?: number; error?: string }> {
