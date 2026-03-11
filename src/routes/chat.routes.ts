@@ -708,10 +708,11 @@ router.post('/widget/upload', (req: Request, res: Response) => {
     if (chat && (chat.state === 'carga_verificando' || chat.state === 'carga_comprobante') && ocrService.isConfigured()) {
       (async () => {
         try {
-          console.log(`[OCR+Palta] Iniciando análisis de comprobante para chat ${chatId}`);
+          console.log(`[OCR+Palta] Iniciando análisis de comprobante para chat ${chatId}, imagen: ${imageUrl}`);
 
           // Step 1: OCR - extract data from comprobante
           const ocrResult = await ocrService.analyzeComprobante(imageUrl);
+          console.log(`[OCR+Palta] Resultado OCR: success=${ocrResult.success}, amount=${ocrResult.amount}, sender="${ocrResult.senderName}", error="${ocrResult.error || ''}"`);
 
           if (!ocrResult.success || !ocrResult.amount || !ocrResult.senderName) {
             console.log(`[OCR+Palta] OCR no pudo extraer datos suficientes: ${ocrResult.error || 'nombre o monto faltante'}`);

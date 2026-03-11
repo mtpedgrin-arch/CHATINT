@@ -183,6 +183,7 @@ app.use('/api/analytics', analyticsRoutes);
 // OCR Service (OpenAI Vision) — prioritize stored config, fallback to .env
 const storedOpenAIKey = dataService.getApiConfig()?.openai?.apiKey;
 const openaiKey = storedOpenAIKey || process.env.OPENAI_API_KEY;
+console.log(`[OCR] Buscando API key: stored=${storedOpenAIKey ? '****' + storedOpenAIKey.slice(-4) : 'NO'}, env=${process.env.OPENAI_API_KEY ? '****' + process.env.OPENAI_API_KEY.slice(-4) : 'NO'}`);
 if (openaiKey) {
   ocrService.configure(openaiKey);
 }
