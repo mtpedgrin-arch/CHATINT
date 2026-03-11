@@ -440,8 +440,9 @@ function processAutomation(chatId: string, text: string, io: any, messageType: s
 
   const accounts = dataService.getAccounts();
   const settings = dataService.getSettings();
-  // Use Palta account data if mode is 'auto' and connected, otherwise manual accounts
-  const paltaAccount = settings.accountMode === 'auto' ? paltaService.getAccountInfo() : null;
+  // Use Palta account data if mode is 'auto' (default) and connected, otherwise manual accounts
+  const accountMode = settings.accountMode || 'auto';
+  const paltaAccount = accountMode === 'auto' ? paltaService.getAccountInfo() : null;
   const primaryAccount = paltaAccount
     ? { cbu: paltaAccount.cvu, alias: paltaAccount.alias, titular: paltaAccount.titular, cuit: paltaAccount.cuit }
     : accounts.find(a => a.estatus === 'active') || accounts[0];
@@ -502,23 +503,29 @@ function processAutomation(chatId: string, text: string, io: any, messageType: s
     // Waiting for CBU or ALIAS selection
     if (normalized === 'cbu') {
       newState = 'carga_comprobante';
-      if (primaryAccount) {
+      if (primaryAccount && primaryAccount.cbu) {
         const autoText = getAutoText('cbu_selected', {
-          cbu: primaryAccount.cbu || '',
+          cbu: primaryAccount.cbu,
           titular: primaryAccount.titular || '',
           cuit: (primaryAccount as any).cuit || '',
         });
         if (autoText) botMessages.push(sendBotMessage(chatId, autoText, io));
+        else botMessages.push(sendBotMessage(chatId, `📋 CBU: ${primaryAccount.cbu}\nTitular: ${primaryAccount.titular || '---'}\n\nEnviá el comprobante con todos los datos visibles 🧾`, io));
+      } else {
+        botMessages.push(sendBotMessage(chatId, '⚠️ No hay cuenta configurada. Contactá a soporte.', io));
       }
 
     } else if (normalized === 'alias') {
       newState = 'carga_comprobante';
-      if (primaryAccount) {
+      if (primaryAccount && primaryAccount.alias) {
         const autoText = getAutoText('alias_selected', {
-          alias: primaryAccount.alias || '',
+          alias: primaryAccount.alias,
           titular: primaryAccount.titular || '',
         });
         if (autoText) botMessages.push(sendBotMessage(chatId, autoText, io));
+        else botMessages.push(sendBotMessage(chatId, `📋 ALIAS: ${primaryAccount.alias}\nTitular: ${primaryAccount.titular || '---'}\n\nEnviá el comprobante con todos los datos visibles 🧾`, io));
+      } else {
+        botMessages.push(sendBotMessage(chatId, '⚠️ No hay cuenta configurada. Contactá a soporte.', io));
       }
 
     } else {
