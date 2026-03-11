@@ -686,13 +686,18 @@ router.post('/widget/upload', (req: Request, res: Response) => {
         sender: 'bot',
         senderName: 'Casino 463',
         text: existingPayment.status === 'approved'
-          ? '⚠️ Este comprobante ya fue procesado anteriormente. Si necesitás hacer otra carga, enviá un comprobante nuevo.'
-          : '⚠️ Este comprobante ya está siendo procesado. Por favor esperá a que se verifique.',
+          ? '⚠️ Este comprobante ya fue procesado anteriormente. Si necesitás hacer otra carga, enviá un comprobante nuevo.\n\n¿En qué más podemos ayudarte?'
+          : '⚠️ Este comprobante ya está siendo procesado. Por favor esperá a que se verifique.\n\n¿En qué más podemos ayudarte?',
         type: 'text',
       });
+      // Reset chat state to options so user can navigate again
+      dataService.updateChat(chatId, { state: 'options' });
       if (io) {
         io.to(`chat:${chatId}`).emit('message:new', dupMsg);
         io.to('agents').emit('message:new', dupMsg);
+        io.to(`chat:${chatId}`).emit('chat:state-changed', { chatId, state: 'options' });
+        io.to(`chat:${chatId}`).emit('chat:show-buttons', { chatId, buttons: [], showOptions: true });
+        io.to('agents').emit('chat:state-changed', { chatId, state: 'options' });
       }
       return res.json({ visitorMessage: null, botMessages: [dupMsg], imageUrl: null, duplicate: true });
     }
@@ -817,13 +822,18 @@ router.post('/widget/upload', (req: Request, res: Response) => {
               sender: 'bot',
               senderName: 'Casino 463',
               text: ocrDuplicate.status === 'approved'
-                ? '⚠️ Este comprobante ya fue procesado anteriormente. Si necesitás hacer otra carga, enviá un comprobante diferente.'
-                : '⚠️ Este comprobante ya está siendo procesado. Por favor esperá a que se verifique.',
+                ? '⚠️ Este comprobante ya fue procesado anteriormente. Si necesitás hacer otra carga, enviá un comprobante diferente.\n\n¿En qué más podemos ayudarte?'
+                : '⚠️ Este comprobante ya está siendo procesado. Por favor esperá a que se verifique.\n\n¿En qué más podemos ayudarte?',
               type: 'text',
             });
+            // Reset chat state to options so user can navigate
+            dataService.updateChat(chatId, { state: 'options' });
             if (io) {
               io.to(`chat:${chatId}`).emit('message:new', dupMsg);
               io.to('agents').emit('message:new', dupMsg);
+              io.to(`chat:${chatId}`).emit('chat:state-changed', { chatId, state: 'options' });
+              io.to(`chat:${chatId}`).emit('chat:show-buttons', { chatId, buttons: [], showOptions: true });
+              io.to('agents').emit('chat:state-changed', { chatId, state: 'options' });
             }
             return; // Don't create duplicate payment
           }
