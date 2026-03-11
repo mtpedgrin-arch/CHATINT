@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { dataService } from '../services/data.service';
 import { ocrService } from '../services/ocr.service';
 import { paltaService } from '../services/palta.service';
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
@@ -657,6 +658,31 @@ router.post('/widget/upload', (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Imagen demasiado grande (máx 5MB)' });
     }
 
+    // ── DUPLICATE COMPROBANTE DETECTION ──
+    // Generate hash from image content to detect re-uploads of the same comprobante
+    const imageHash = crypto.createHash('sha256').update(buffer).digest('hex').substring(0, 16);
+    const existingPayment = (dataService.getPayments() || []).find(
+      p => p.imageHash === imageHash && (p.status === 'pending' || p.status === 'approved')
+    );
+    if (existingPayment) {
+      console.log(`[UPLOAD] ⚠️ Comprobante duplicado detectado: hash=${imageHash}, payment #${existingPayment.id} (${existingPayment.status})`);
+      const io = req.app.get('io');
+      const dupMsg = dataService.addChatMessage({
+        chatId,
+        sender: 'bot',
+        senderName: 'Casino 463',
+        text: existingPayment.status === 'approved'
+          ? '⚠️ Este comprobante ya fue procesado anteriormente. Si necesitás hacer otra carga, enviá un comprobante nuevo.'
+          : '⚠️ Este comprobante ya está siendo procesado. Por favor esperá a que se verifique.',
+        type: 'text',
+      });
+      if (io) {
+        io.to(`chat:${chatId}`).emit('message:new', dupMsg);
+        io.to('agents').emit('message:new', dupMsg);
+      }
+      return res.json({ visitorMessage: null, botMessages: [dupMsg], imageUrl: null, duplicate: true });
+    }
+
     // Save file
     const filename = `comp-${chatId.substring(0, 8)}-${Date.now()}.${ext}`;
     const filepath = path.join(uploadsDir, filename);
@@ -784,7 +810,7 @@ router.post('/widget/upload', (req: Request, res: Response) => {
             aiAnalysis: `OCR: ${ocrResult.senderName} — $${ocrResult.amount} — ${ocrResult.bankName} — ${ocrResult.date}`,
             processedBy: null,
             rejectionReason: '',
-            imageHash: `ocr-${Date.now()}`,
+            imageHash,
             bankAccount: ocrResult.bankName,
           });
 
