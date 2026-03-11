@@ -805,7 +805,8 @@ router.post('/widget/upload', (req: Request, res: Response) => {
             });
           }
 
-          // Step 1.5: POST-OCR DUPLICATE CHECK — same sender + same amount = likely duplicate comprobante
+          // Step 1.5: POST-OCR DUPLICATE CHECK — same sender + same amount + same transactionId = duplicate
+          // If OCR extracted a transactionId (ID COELSA), use it to differentiate real transfers
           const existingPayments = dataService.getPayments() || [];
           const ocrDuplicate = existingPayments.find(
             p => p.chatId === chatId
@@ -814,6 +815,15 @@ router.post('/widget/upload', (req: Request, res: Response) => {
               && Math.abs(p.amount - ocrResult.amount) < 0.01
               && p.comprobante?.extractedData?.senderName
               && p.comprobante.extractedData.senderName.toLowerCase() === ocrResult.senderName.toLowerCase()
+              // If BOTH have a transactionId, they must match to be a duplicate
+              // If either is missing transactionId, fall back to date comparison
+              && (
+                (ocrResult.transactionId && p.comprobante.extractedData.transactionId)
+                  ? p.comprobante.extractedData.transactionId === ocrResult.transactionId
+                  : (ocrResult.date && p.comprobante.extractedData.date)
+                    ? p.comprobante.extractedData.date === ocrResult.date
+                    : true // No distinguishing data — assume duplicate for safety
+              )
           );
           if (ocrDuplicate) {
             console.log(`[OCR+Palta] ⚠️ Duplicado OCR detectado: mismo sender "${ocrResult.senderName}" + monto $${ocrResult.amount} ya existe en pago #${ocrDuplicate.id} (${ocrDuplicate.status})`);
