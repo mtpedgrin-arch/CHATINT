@@ -802,24 +802,45 @@ class PaltaService {
     const normalPalta = this.normalizeString(paltaName);
     const normalPayment = this.normalizeString(paymentName);
 
+    if (!normalPalta || !normalPayment) return { match: false, type: 'exact' };
+
     // Exact match
     if (normalPalta === normalPayment) {
       return { match: true, type: 'exact' };
     }
 
-    // Partial match: one contains the other
-    if (normalPalta.includes(normalPayment) || normalPayment.includes(normalPalta)) {
-      return { match: true, type: 'partial' };
+    // Partial match: one contains the other (must be significant — at least 8 chars)
+    if (normalPalta.length >= 8 && normalPayment.length >= 8) {
+      if (normalPalta.includes(normalPayment) || normalPayment.includes(normalPalta)) {
+        return { match: true, type: 'partial' };
+      }
     }
 
-    // Fuzzy: split names and check if at least 2 words match
+    // Fuzzy: split names and check word overlap
+    // Common first names like "Pablo", "Juan", "Maria" alone are NOT enough
     const paltaWords = normalPalta.split(/\s+/).filter(w => w.length > 2);
     const paymentWords = normalPayment.split(/\s+/).filter(w => w.length > 2);
+
+    // Require at least 2 words in each name to do fuzzy matching
+    if (paltaWords.length < 2 || paymentWords.length < 2) {
+      return { match: false, type: 'exact' };
+    }
+
+    // Count matching words (exact word match only, no substring)
     const matchingWords = paltaWords.filter(pw =>
-      paymentWords.some(payw => pw.includes(payw) || payw.includes(pw))
+      paymentWords.some(payw => pw === payw)
     );
 
-    if (matchingWords.length >= 2 || (matchingWords.length >= 1 && paltaWords.length <= 2)) {
+    // Require at least 2 matching words (e.g., first name + last name)
+    // This prevents "Pablo Ezequiel Leguiza" matching "Pablo Daniel Salinas" (only "pablo" matches)
+    if (matchingWords.length >= 2) {
+      return { match: true, type: 'fuzzy' };
+    }
+
+    // Special case: if last names match exactly (last word of each), that's a strong signal
+    const paltaLastName = paltaWords[paltaWords.length - 1];
+    const paymentLastName = paymentWords[paymentWords.length - 1];
+    if (paltaLastName === paymentLastName && paltaLastName.length >= 4 && matchingWords.length >= 1) {
       return { match: true, type: 'fuzzy' };
     }
 
@@ -843,15 +864,27 @@ class PaltaService {
         const client = payment.clientId ? dataService.getClientById(payment.clientId) : null;
         if (!client) continue;
 
-        // Try matching name
+        // Try matching name against BOTH client name AND OCR-extracted sender name
+        const ocrSenderName = (payment.comprobante as any)?.extractedData?.senderName || '';
         const nameResult = this.namesMatch(tx.counterpartyName, client.nombre);
-        if (!nameResult.match) continue;
+        const ocrNameResult = ocrSenderName ? this.namesMatch(tx.counterpartyName, ocrSenderName) : { match: false, type: 'exact' as const };
+
+        // Use the best match between client name and OCR name
+        const bestMatch = nameResult.match ? nameResult : (ocrNameResult.match ? ocrNameResult : null);
+        if (!bestMatch) continue;
 
         // Calculate confidence
         let confidence = 70;
-        if (nameResult.type === 'exact') confidence = 100;
-        else if (nameResult.type === 'partial') confidence = 90;
-        else if (nameResult.type === 'fuzzy') confidence = 75;
+        if (bestMatch.type === 'exact') confidence = 100;
+        else if (bestMatch.type === 'partial') confidence = 90;
+        else if (bestMatch.type === 'fuzzy') confidence = 75;
+
+        // Bonus: CUIT match (very strong signal)
+        const ocrCuit = (payment.comprobante as any)?.extractedData?.cuit || '';
+        if (ocrCuit && tx.counterpartyCuit && this.normalizeString(ocrCuit) === this.normalizeString(tx.counterpartyCuit)) {
+          confidence = Math.min(100, confidence + 10);
+          console.log(`[Palta] 🔑 CUIT match bonus: ${ocrCuit}`);
+        }
 
         // Bonus: same day
         const txDate = new Date(tx.createdAt).toISOString().split('T')[0];
@@ -1063,6 +1096,13 @@ class PaltaService {
       let autoApprovedCount = 0;
 
       for (const match of matches) {
+        // Re-verify payment is still pending (prevent race conditions)
+        const freshPayment = dataService.getPaymentById(match.payment.id);
+        if (!freshPayment || freshPayment.status !== 'pending') {
+          console.log(`[Palta] ⏭️ Skipping match: Pago #${match.payment.id} ya no está pendiente (status: ${freshPayment?.status})`);
+          continue;
+        }
+
         console.log(`[Palta] 🔗 Match: "${match.transaction.counterpartyName}" → Pago #${match.payment.id} ($${match.payment.amount}) [${match.nameMatchType}, ${match.confidence}%]`);
 
         // Mark as matched
@@ -1071,8 +1111,9 @@ class PaltaService {
           matchedPaymentId: match.payment.id,
         });
 
-        // Auto-approve if enabled
-        if (config.autoApprove && match.confidence >= 75) {
+        // Auto-approve if enabled — require >= 85% confidence (exact or partial name match + same day)
+        // Fuzzy-only matches (75%) go to manual review for safety
+        if (config.autoApprove && match.confidence >= 85) {
           const approved = await this.autoApprovePayment(match.payment.id, match.transaction.paltaId);
           if (approved) {
             dataService.updatePaltaTransaction(match.transaction.id, { autoApproved: true });
@@ -1087,7 +1128,7 @@ class PaltaService {
             paymentId: match.payment.id,
             confidence: match.confidence,
             nameMatchType: match.nameMatchType,
-            autoApproved: config.autoApprove && match.confidence >= 75,
+            autoApproved: config.autoApprove && match.confidence >= 85,
           });
         }
       }
