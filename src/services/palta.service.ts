@@ -873,23 +873,45 @@ class PaltaService {
         const bestMatch = nameResult.match ? nameResult : (ocrNameResult.match ? ocrNameResult : null);
         if (!bestMatch) continue;
 
-        // Calculate confidence
+        // Calculate confidence based on name match quality
         let confidence = 70;
-        if (bestMatch.type === 'exact') confidence = 100;
-        else if (bestMatch.type === 'partial') confidence = 90;
+        if (bestMatch.type === 'exact') confidence = 95;
+        else if (bestMatch.type === 'partial') confidence = 85;
         else if (bestMatch.type === 'fuzzy') confidence = 75;
 
-        // Bonus: CUIT match (very strong signal)
+        // Bonus: CUIT match (very strong signal — sender CUIT from Palta matches OCR CUIT)
         const ocrCuit = (payment.comprobante as any)?.extractedData?.cuit || '';
         if (ocrCuit && tx.counterpartyCuit && this.normalizeString(ocrCuit) === this.normalizeString(tx.counterpartyCuit)) {
-          confidence = Math.min(100, confidence + 10);
+          confidence = Math.min(100, confidence + 5);
           console.log(`[Palta] 🔑 CUIT match bonus: ${ocrCuit}`);
         }
 
-        // Bonus: same day
-        const txDate = new Date(tx.createdAt).toISOString().split('T')[0];
-        const payDate = new Date(payment.createdAt).toISOString().split('T')[0];
-        if (txDate === payDate) confidence = Math.min(100, confidence + 5);
+        // Bonus: time proximity — OCR date vs Palta createdAt within ±10 minutes
+        const ocrDate = (payment.comprobante as any)?.extractedData?.date || '';
+        if (ocrDate && tx.createdAt) {
+          const txTime = new Date(tx.createdAt).getTime();
+          // Try to parse OCR date (formats: "DD/MM/YYYY HH:mm", "DD/MM/YYYY", "YYYY-MM-DD")
+          let ocrTime = 0;
+          const dmyMatch = ocrDate.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s*(\d{1,2}):(\d{2})/);
+          if (dmyMatch) {
+            // DD/MM/YYYY HH:mm — assume Argentina timezone (UTC-3)
+            ocrTime = new Date(`${dmyMatch[3]}-${dmyMatch[2].padStart(2,'0')}-${dmyMatch[1].padStart(2,'0')}T${dmyMatch[4].padStart(2,'0')}:${dmyMatch[5]}:00-03:00`).getTime();
+          }
+          if (ocrTime && txTime) {
+            const diffMinutes = Math.abs(txTime - ocrTime) / (1000 * 60);
+            if (diffMinutes <= 10) {
+              confidence = Math.min(100, confidence + 5);
+              console.log(`[Palta] ⏰ Time proximity bonus: ${diffMinutes.toFixed(1)} min difference`);
+            }
+          }
+        }
+
+        // Bonus: same day (weaker than time proximity but still useful)
+        if (confidence < 100) {
+          const txDate = new Date(tx.createdAt).toISOString().split('T')[0];
+          const payDate = new Date(payment.createdAt).toISOString().split('T')[0];
+          if (txDate === payDate) confidence = Math.min(100, confidence + 2);
+        }
 
         results.push({
           payment,
