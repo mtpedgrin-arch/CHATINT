@@ -875,8 +875,8 @@ class PaltaService {
 
         // Calculate confidence based on name match quality
         let confidence = 70;
-        if (bestMatch.type === 'exact') confidence = 95;
-        else if (bestMatch.type === 'partial') confidence = 85;
+        if (bestMatch.type === 'exact') confidence = 88;
+        else if (bestMatch.type === 'partial') confidence = 80;
         else if (bestMatch.type === 'fuzzy') confidence = 75;
 
         // Bonus: CUIT match (very strong signal — sender CUIT from Palta matches OCR CUIT)
