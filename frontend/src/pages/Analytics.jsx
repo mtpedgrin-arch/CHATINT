@@ -800,7 +800,7 @@ const styles = {
     border: '1px solid rgba(255,255,255,0.06)', marginBottom: 12, minWidth: 0,
   },
   chartTitle: { color: '#ccc', fontSize: 14, fontWeight: 600, margin: '0 0 14px 0' },
-  tooltip: { background: '#1e1e30', border: '1px solid #333', borderRadius: 8, color: '#ddd' },
+  tooltip: { background: 'rgba(20,20,40,0.92)', border: '1px solid rgba(108,92,231,0.3)', borderRadius: 8, color: '#ddd' },
   metricRow: { display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' },
   metricBadge: {
     background: 'rgba(108,92,231,0.15)', color: '#a29bfe', padding: '4px 10px',
