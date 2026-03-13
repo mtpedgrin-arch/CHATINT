@@ -334,10 +334,10 @@ function GeneralTab({ overview, activeUsers, segments, peakHours }) {
           {activeUsers?.series && (
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={activeUsers.series}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#333" fill="transparent" />
                 <XAxis dataKey="date" tick={{ fill: '#888', fontSize: 11 }} tickFormatter={d => d.slice(5)} />
                 <YAxis tick={{ fill: '#888', fontSize: 11 }} />
-                <Tooltip contentStyle={styles.tooltip} labelFormatter={d => `Fecha: ${d}`} />
+                <Tooltip contentStyle={styles.tooltip} labelFormatter={d => `Fecha: ${d}`} cursor={{ fill: 'rgba(108,92,231,0.08)' }} />
                 <Legend />
                 <Line type="monotone" dataKey="activeUsers" stroke="#6c5ce7" strokeWidth={2} name="Activos" dot={false} />
                 <Line type="monotone" dataKey="logins" stroke="#00b894" strokeWidth={2} name="Logins" dot={false} />
@@ -371,7 +371,7 @@ function GeneralTab({ overview, activeUsers, segments, peakHours }) {
                     <Cell key={i} fill={s.color} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={styles.tooltip} />
+                <Tooltip contentStyle={styles.tooltip} cursor={{ fill: 'rgba(108,92,231,0.08)' }} />
               </PieChart>
             </ResponsiveContainer>
           )}
@@ -384,10 +384,10 @@ function GeneralTab({ overview, activeUsers, segments, peakHours }) {
         {peakHours && (
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={peakHours}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#333" fill="transparent" />
               <XAxis dataKey="hour" tick={{ fill: '#888', fontSize: 10 }} />
               <YAxis tick={{ fill: '#888', fontSize: 11 }} />
-              <Tooltip contentStyle={styles.tooltip} />
+              <Tooltip contentStyle={styles.tooltip} cursor={{ fill: 'rgba(108,92,231,0.08)' }} />
               <Bar dataKey="activities" fill="#6c5ce7" name="Actividades" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -418,10 +418,10 @@ function FinancieroTab({ financial, funnel }) {
           <h3 style={styles.chartTitle}>Depositos vs Retiros</h3>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={financial.series}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#333" fill="transparent" />
               <XAxis dataKey="date" tick={{ fill: '#888', fontSize: 11 }} tickFormatter={d => d.slice(5)} />
               <YAxis tick={{ fill: '#888', fontSize: 11 }} tickFormatter={v => formatMoney(v)} />
-              <Tooltip contentStyle={styles.tooltip} formatter={v => formatMoney(v)} />
+              <Tooltip contentStyle={styles.tooltip} formatter={v => formatMoney(v)} cursor={{ fill: 'rgba(108,92,231,0.08)' }} />
               <Legend />
               <Bar dataKey="deposits" fill="#00b894" name="Depositos" radius={[4, 4, 0, 0]} />
               <Bar dataKey="withdrawals" fill="#d63031" name="Retiros" radius={[4, 4, 0, 0]} />
@@ -434,10 +434,10 @@ function FinancieroTab({ financial, funnel }) {
           <h3 style={styles.chartTitle}>Revenue Neto (Tendencia)</h3>
           <ResponsiveContainer width="100%" height={280}>
             <AreaChart data={financial.series}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#333" fill="transparent" />
               <XAxis dataKey="date" tick={{ fill: '#888', fontSize: 10 }} tickFormatter={d => d.slice(8)} />
               <YAxis tick={{ fill: '#888', fontSize: 11 }} tickFormatter={v => formatMoney(v)} />
-              <Tooltip contentStyle={styles.tooltip} formatter={v => formatMoney(v)} />
+              <Tooltip contentStyle={styles.tooltip} formatter={v => formatMoney(v)} cursor={{ fill: 'rgba(108,92,231,0.08)' }} />
               <Area type="monotone" dataKey="net" stroke="#6c5ce7" fill="#6c5ce740" name="Neto" />
             </AreaChart>
           </ResponsiveContainer>
@@ -593,10 +593,10 @@ function UserDetailView({ data, onBack }) {
           <h3 style={styles.chartTitle}>Actividad Diaria (30 dias)</h3>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={dailyActivity}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#333" fill="transparent" />
               <XAxis dataKey="date" tick={{ fill: '#888', fontSize: 10 }} tickFormatter={d => d.slice(8)} />
               <YAxis tick={{ fill: '#888', fontSize: 11 }} />
-              <Tooltip contentStyle={styles.tooltip} />
+              <Tooltip contentStyle={styles.tooltip} cursor={{ fill: 'rgba(108,92,231,0.08)' }} />
               <Bar dataKey="count" fill="#6c5ce7" name="Actividades" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -744,10 +744,10 @@ function EngagementTab({ engagement, sessions }) {
           <h3 style={styles.chartTitle}>Sesiones por Dia</h3>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={sessions.sessionsByDay}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#333" fill="transparent" />
               <XAxis dataKey="date" tick={{ fill: '#888', fontSize: 10 }} tickFormatter={d => d.slice(5)} />
               <YAxis tick={{ fill: '#888', fontSize: 11 }} />
-              <Tooltip contentStyle={styles.tooltip} />
+              <Tooltip contentStyle={styles.tooltip} cursor={{ fill: 'rgba(108,92,231,0.08)' }} />
               <Bar dataKey="sessions" fill="#6c5ce7" name="Sesiones" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
