@@ -3085,9 +3085,13 @@ html, body {
       deferredInstallPrompt.prompt();
       var result = await deferredInstallPrompt.userChoice;
       console.log('[PWA] Install result:', result.outcome);
+      if (result.outcome === 'accepted') {
+        trackPushEvent('pwa_installed');
+      } else {
+        trackPushEvent('pwa_dismissed');
+      }
       deferredInstallPrompt = null;
       hideInstallBanner();
-      // Si no instaló, mañana le vuelve a salir
     });
   }
 
@@ -3162,6 +3166,21 @@ html, body {
     try { localStorage.setItem(PUSH_DISMISSED_KEY, Date.now().toString()); } catch(e) {}
   }
 
+  // Track push/PWA events to backend
+  function trackPushEvent(eventType) {
+    try {
+      fetch(API_BASE + '/api/notifications/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: eventType,
+          clientId: state.clientId || null,
+          chatId: state.chatId || null,
+        }),
+      }).catch(function() {});
+    } catch(e) {}
+  }
+
   function hidePushBanner() {
     if (pushBanner) pushBanner.classList.remove('show');
   }
@@ -3194,7 +3213,10 @@ html, body {
 
     // Show banner after a 2 second delay (let user settle in first)
     setTimeout(function() {
-      if (pushBanner) pushBanner.classList.add('show');
+      if (pushBanner) {
+        pushBanner.classList.add('show');
+        trackPushEvent('banner_shown');
+      }
     }, 2000);
   }
 
@@ -3206,6 +3228,14 @@ html, body {
       await subscribeToPush();
       if (pushSubscriptionActive) {
         console.log('[Push Banner] User enabled notifications!');
+        trackPushEvent('accepted');
+      } else {
+        // User clicked enable but browser denied or something failed
+        if ('Notification' in window && Notification.permission === 'denied') {
+          trackPushEvent('denied_by_browser');
+        } else {
+          trackPushEvent('declined');
+        }
       }
     });
   }
@@ -3215,12 +3245,14 @@ html, body {
     pushCloseBtn.addEventListener('click', function() {
       markPushDismissed();
       hidePushBanner();
+      trackPushEvent('dismissed');
     });
   }
   if (pushSkipBtn) {
     pushSkipBtn.addEventListener('click', function() {
       markPushDismissed();
       hidePushBanner();
+      trackPushEvent('dismissed');
     });
   }
   if (pushBanner) {
@@ -3228,6 +3260,7 @@ html, body {
       if (e.target === pushBanner) {
         markPushDismissed();
         hidePushBanner();
+        trackPushEvent('dismissed');
       }
     });
   }

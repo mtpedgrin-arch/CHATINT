@@ -173,6 +173,7 @@ export const getAnalyticsSegments = () => apiFetch('/api/analytics/segments');
 export const getAnalyticsPeakHours = (from, to) => apiFetch(`/api/analytics/peak-hours?from=${from}&to=${to}`);
 export const getAnalyticsEngagement = (from, to) => apiFetch(`/api/analytics/engagement?from=${from}&to=${to}`);
 export const getAnalyticsSessions = (from, to) => apiFetch(`/api/analytics/sessions?from=${from}&to=${to}`);
+export const getPushTrackingStats = () => apiFetch('/api/notifications/tracking-stats');
 
 // Casino 463.life API
 export const casinoTestConnection = (data) => apiFetch('/api/admin/casino/test-connection', { method: 'POST', body: JSON.stringify(data || {}) });

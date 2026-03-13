@@ -66,6 +66,9 @@ class AnalyticsService {
     const clientsWithoutPush = totalClients - clientsWithPush;
     const pushAdoptionRate = totalClients > 0 ? Math.round((clientsWithPush / totalClients) * 100) : 0;
 
+    // Push tracking stats
+    const trackingStats = dataService.getPushTrackingStats();
+
     const result = {
       dau,
       revenueToday,
@@ -83,6 +86,7 @@ class AnalyticsService {
         adoptionRate: pushAdoptionRate,
         totalSubscriptions: pushSubs.length,
       },
+      pushTracking: trackingStats,
     };
 
     this.setCache(cacheKey, result);

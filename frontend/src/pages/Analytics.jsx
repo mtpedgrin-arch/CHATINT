@@ -190,9 +190,11 @@ function GeneralTab({ overview, activeUsers, segments, peakHours }) {
       {/* Push Notification Stats */}
       {overview.pushStats && (
         <div style={{ ...styles.chartCard, marginBottom: 12 }}>
-          <h3 style={styles.chartTitle}>Push Notifications - Adopcion</h3>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
+          <h3 style={styles.chartTitle}>🔔 Push Notifications</h3>
+          {/* Adoption bar */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap', marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ color: '#888', fontSize: 13 }}>Adopción:</span>
               <div style={{ width: 200, height: 18, background: 'rgba(255,255,255,0.08)', borderRadius: 10, overflow: 'hidden' }}>
                 <div style={{ width: `${overview.pushStats.adoptionRate}%`, height: '100%', background: 'linear-gradient(90deg, #6c5ce7, #a29bfe)', borderRadius: 10, transition: 'width 0.5s' }} />
               </div>
@@ -200,8 +202,48 @@ function GeneralTab({ overview, activeUsers, segments, peakHours }) {
             </div>
             <span style={styles.metricBadge}>🔔 Activadas: {overview.pushStats.subscribed}</span>
             <span style={{ ...styles.metricBadge, background: 'rgba(214,48,49,0.15)', color: '#ff7675' }}>🔕 Sin activar: {overview.pushStats.notSubscribed}</span>
-            <span style={{ ...styles.metricBadge, background: 'rgba(0,184,148,0.15)', color: '#55efc4' }}>📱 Total subs: {overview.pushStats.totalSubscriptions}</span>
+            <span style={{ ...styles.metricBadge, background: 'rgba(0,184,148,0.15)', color: '#55efc4' }}>📱 Dispositivos: {overview.pushStats.totalSubscriptions}</span>
           </div>
+          {/* Tracking stats */}
+          {overview.pushTracking && (
+            <div>
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                <div style={{ background: 'rgba(108,92,231,0.12)', borderRadius: 12, padding: '10px 16px', textAlign: 'center', minWidth: 100 }}>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: '#a29bfe' }}>{overview.pushTracking.totalBannerShown}</div>
+                  <div style={{ fontSize: 11, color: '#888' }}>Banner mostrado</div>
+                </div>
+                <div style={{ background: 'rgba(0,184,148,0.12)', borderRadius: 12, padding: '10px 16px', textAlign: 'center', minWidth: 100 }}>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: '#55efc4' }}>{overview.pushTracking.totalAccepted}</div>
+                  <div style={{ fontSize: 11, color: '#888' }}>Aceptaron push</div>
+                </div>
+                <div style={{ background: 'rgba(214,48,49,0.12)', borderRadius: 12, padding: '10px 16px', textAlign: 'center', minWidth: 100 }}>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: '#ff7675' }}>{overview.pushTracking.totalDismissed}</div>
+                  <div style={{ fontSize: 11, color: '#888' }}>Cerraron banner</div>
+                </div>
+                <div style={{ background: 'rgba(253,121,168,0.12)', borderRadius: 12, padding: '10px 16px', textAlign: 'center', minWidth: 100 }}>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: '#fd79a8' }}>{overview.pushTracking.totalDenied}</div>
+                  <div style={{ fontSize: 11, color: '#888' }}>Bloquearon (browser)</div>
+                </div>
+              </div>
+              {/* PWA Install stats */}
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12, marginTop: 12, display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{ color: '#888', fontSize: 13, fontWeight: 600 }}>📲 PWA App:</span>
+                <div style={{ background: 'rgba(0,184,148,0.12)', borderRadius: 12, padding: '8px 14px', textAlign: 'center' }}>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: '#55efc4' }}>{overview.pushTracking.totalPwaInstalled}</span>
+                  <span style={{ fontSize: 11, color: '#888', marginLeft: 6 }}>instalaron</span>
+                </div>
+                <div style={{ background: 'rgba(214,48,49,0.12)', borderRadius: 12, padding: '8px 14px', textAlign: 'center' }}>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: '#ff7675' }}>{overview.pushTracking.totalPwaDismissed}</span>
+                  <span style={{ fontSize: 11, color: '#888', marginLeft: 6 }}>rechazaron</span>
+                </div>
+                {overview.pushTracking.totalPwaInstalled > 0 && (
+                  <span style={{ color: '#55efc4', fontSize: 13 }}>
+                    ({Math.round((overview.pushTracking.totalPwaInstalled / (overview.pushTracking.totalPwaInstalled + overview.pushTracking.totalPwaDismissed)) * 100) || 0}% conversion)
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

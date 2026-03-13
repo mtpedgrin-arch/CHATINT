@@ -292,6 +292,15 @@ export interface DailyAggregate {
   activeClientIds: number[];
 }
 
+export interface PushTrackingEvent {
+  id: string;
+  clientId: number | null;
+  chatId: string | null;
+  event: 'banner_shown' | 'accepted' | 'declined' | 'dismissed' | 'denied_by_browser' | 'pwa_installed' | 'pwa_dismissed';
+  userAgent: string;
+  timestamp: string;
+}
+
 export interface PaltaTransaction {
   id: string;
   paltaId: string;
@@ -341,6 +350,7 @@ export interface Store {
   dailyAggregates: DailyAggregate[];
   paltaTransactions: PaltaTransaction[];
   paltaConfig: PaltaConfig;
+  pushTrackingEvents: PushTrackingEvent[];
 }
 
 class DataService {
@@ -388,6 +398,7 @@ class DataService {
           activityLogs: [], dailyAggregates: [],
           paltaTransactions: [],
           paltaConfig: { email: '', password: '', enabled: false, pollIntervalSeconds: 60, autoApprove: true, headless: true, lastPollAt: null, status: 'stopped' as const, errorMessage: '' },
+          pushTrackingEvents: [],
         };
         fs.writeFileSync(DATA_PATH, JSON.stringify(empty, null, 2));
       }
@@ -406,6 +417,7 @@ class DataService {
       if (!data.activityLogs) data.activityLogs = [];
       if (!data.dailyAggregates) data.dailyAggregates = [];
       if (!data.paltaTransactions) data.paltaTransactions = [];
+      if (!data.pushTrackingEvents) data.pushTrackingEvents = [];
       if (!data.paltaConfig) data.paltaConfig = {
         email: '', password: '', enabled: false,
         pollIntervalSeconds: 60, autoApprove: true,
@@ -841,6 +853,65 @@ class DataService {
 
   getPushSubscriptionsByChat(chatId: string): PushSubscriptionRecord[] {
     return (this.store.pushSubscriptions || []).filter(s => s.chatId === chatId);
+  }
+
+  // ── PUSH TRACKING EVENTS ────────────────────────
+  getPushTrackingEvents(): PushTrackingEvent[] {
+    return this.store.pushTrackingEvents || [];
+  }
+
+  createPushTrackingEvent(data: Omit<PushTrackingEvent, 'id' | 'timestamp'>): PushTrackingEvent {
+    const { v4: uuid } = require('uuid');
+    const evt: PushTrackingEvent = {
+      ...data,
+      id: uuid(),
+      timestamp: new Date().toISOString(),
+    };
+    if (!this.store.pushTrackingEvents) this.store.pushTrackingEvents = [];
+    this.store.pushTrackingEvents.push(evt);
+    // Keep only last 5000 events
+    if (this.store.pushTrackingEvents.length > 5000) {
+      this.store.pushTrackingEvents = this.store.pushTrackingEvents.slice(-5000);
+    }
+    this.save();
+    return evt;
+  }
+
+  getPushTrackingStats(): {
+    totalAccepted: number;
+    totalDeclined: number;
+    totalDismissed: number;
+    totalDenied: number;
+    totalPwaInstalled: number;
+    totalPwaDismissed: number;
+    totalBannerShown: number;
+    uniqueClientsAccepted: number;
+    uniqueClientsDeclined: number;
+    uniqueClientsPwaInstalled: number;
+    recentEvents: PushTrackingEvent[];
+  } {
+    const events = this.getPushTrackingEvents();
+    const accepted = events.filter(e => e.event === 'accepted');
+    const declined = events.filter(e => e.event === 'declined');
+    const dismissed = events.filter(e => e.event === 'dismissed');
+    const denied = events.filter(e => e.event === 'denied_by_browser');
+    const pwaInstalled = events.filter(e => e.event === 'pwa_installed');
+    const pwaDismissed = events.filter(e => e.event === 'pwa_dismissed');
+    const bannerShown = events.filter(e => e.event === 'banner_shown');
+
+    return {
+      totalAccepted: accepted.length,
+      totalDeclined: declined.length,
+      totalDismissed: dismissed.length,
+      totalDenied: denied.length,
+      totalPwaInstalled: pwaInstalled.length,
+      totalPwaDismissed: pwaDismissed.length,
+      totalBannerShown: bannerShown.length,
+      uniqueClientsAccepted: new Set(accepted.filter(e => e.clientId).map(e => e.clientId)).size,
+      uniqueClientsDeclined: new Set(declined.filter(e => e.clientId).map(e => e.clientId)).size,
+      uniqueClientsPwaInstalled: new Set(pwaInstalled.filter(e => e.clientId).map(e => e.clientId)).size,
+      recentEvents: events.slice(-50).reverse(),
+    };
   }
 
   // ── SENT NOTIFICATIONS ────────────────────────

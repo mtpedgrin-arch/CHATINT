@@ -65,6 +65,36 @@ router.post('/unsubscribe', (req: Request, res: Response) => {
 });
 
 
+// Track push/PWA events (no auth — called from widget)
+router.post('/track', (req: Request, res: Response) => {
+  try {
+    const { event, clientId, chatId } = req.body;
+    const validEvents = ['banner_shown', 'accepted', 'declined', 'dismissed', 'denied_by_browser', 'pwa_installed', 'pwa_dismissed'];
+    if (!event || !validEvents.includes(event)) {
+      return res.status(400).json({ error: 'Invalid event type' });
+    }
+    dataService.createPushTrackingEvent({
+      event,
+      clientId: clientId ? parseInt(clientId) : null,
+      chatId: chatId || null,
+      userAgent: req.headers['user-agent'] || '',
+    });
+    res.json({ ok: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get push tracking stats (admin)
+router.get('/tracking-stats', (_req: Request, res: Response) => {
+  try {
+    const stats = dataService.getPushTrackingStats();
+    res.json(stats);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── ADMIN ENDPOINTS ──────────────────────────
 
 // Get subscription stats
