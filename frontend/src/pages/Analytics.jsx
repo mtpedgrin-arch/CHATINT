@@ -30,15 +30,28 @@ function formatMoney(n) {
   return '$' + (n || 0).toLocaleString();
 }
 
-// Date helpers
+// Date helpers — Argentina timezone (UTC-3)
+function toArgDate(date) {
+  const d = new Date(date);
+  return d.toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' });
+}
+
+function toArgDateTime(date) {
+  const d = new Date(date);
+  return d.toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' });
+}
+
 function getDaysAgo(days) {
-  const d = new Date();
+  // Get Argentina "today" then subtract days
+  const now = new Date();
+  const arStr = now.toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }); // YYYY-MM-DD format
+  const d = new Date(arStr + 'T12:00:00');
   d.setDate(d.getDate() - days);
   return d.toISOString().split('T')[0];
 }
 
 function getToday() {
-  return new Date().toISOString().split('T')[0];
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
 }
 
 // ── KPI Card ──
@@ -427,7 +440,7 @@ function UsuariosTab({ topActive, topDeposits, sessions, onSelectUser }) {
                   </td>
                   <td style={styles.td}>{u.usuario}</td>
                   <td style={styles.td}><strong>{u.totalActions}</strong></td>
-                  <td style={styles.td}>{u.lastLogin ? new Date(u.lastLogin).toLocaleDateString() : '-'}</td>
+                  <td style={styles.td}>{u.lastLogin ? toArgDate(u.lastLogin) : '-'}</td>
                 </tr>
               ))}
               {topActive.length === 0 && <tr><td style={styles.td} colSpan={5}>Sin datos de actividad</td></tr>}
@@ -485,7 +498,7 @@ function UserDetailView({ data, onBack }) {
         <div>
           <h2 style={{ color: '#fff', margin: 0 }}>{client.nombre} {client.vip && <span style={styles.vipBadge}>VIP</span>}</h2>
           <p style={{ color: '#888', margin: '4px 0' }}>@{client.usuario} | {client.telefono} | {client.estado}</p>
-          <p style={{ color: '#666', margin: 0, fontSize: 12 }}>Miembro desde: {new Date(client.createdAt).toLocaleDateString()}</p>
+          <p style={{ color: '#666', margin: 0, fontSize: 12 }}>Miembro desde: {toArgDate(client.createdAt)}</p>
         </div>
       </div>
 
@@ -531,7 +544,7 @@ function UserDetailView({ data, onBack }) {
           {data.recentActivities?.slice(0, 20).map((a, i) => (
             <div key={i} style={styles.activityItem}>
               <span style={styles.activityAction}>{a.action}</span>
-              <span style={styles.activityTime}>{new Date(a.timestamp).toLocaleString()}</span>
+              <span style={styles.activityTime}>{toArgDateTime(a.timestamp)}</span>
               {a.metadata?.amount && <span style={styles.activityMeta}>{formatMoney(a.metadata.amount)}</span>}
             </div>
           ))}

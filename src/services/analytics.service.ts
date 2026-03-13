@@ -6,6 +6,51 @@ interface CachedResult {
   timestamp: number;
 }
 
+// ── ARGENTINA TIMEZONE HELPERS (UTC-3) ────────────────
+const AR_OFFSET = -3; // Argentina is UTC-3
+
+/** Convert a UTC ISO string to Argentina date string (YYYY-MM-DD) */
+function toArgDate(isoStr: string): string {
+  const d = new Date(isoStr);
+  d.setHours(d.getHours() + AR_OFFSET);
+  return d.toISOString().split('T')[0];
+}
+
+/** Get current Argentina date string (YYYY-MM-DD) */
+function argToday(): string {
+  const now = new Date();
+  now.setHours(now.getHours() + AR_OFFSET);
+  return now.toISOString().split('T')[0];
+}
+
+/** Get current Argentina time as Date object */
+function argNow(): Date {
+  const now = new Date();
+  now.setHours(now.getHours() + AR_OFFSET);
+  return now;
+}
+
+/** Get hour in Argentina timezone (0-23) from a UTC ISO string */
+function toArgHour(isoStr: string): number {
+  const d = new Date(isoStr);
+  // getUTCHours + offset, wrap around 0-23
+  let h = d.getUTCHours() + AR_OFFSET;
+  if (h < 0) h += 24;
+  if (h >= 24) h -= 24;
+  return h;
+}
+
+/** Convert Argentina date bounds to UTC ISO for filtering
+ *  e.g. "2026-03-11" → start: "2026-03-11T03:00:00.000Z", end: "2026-03-12T02:59:59.999Z"
+ */
+function argDayToUtcBounds(dateStr: string): { start: string; end: string } {
+  // Argentina midnight = UTC 03:00
+  return {
+    start: dateStr + 'T03:00:00.000Z',
+    end: new Date(new Date(dateStr + 'T03:00:00.000Z').getTime() + 24 * 60 * 60 * 1000 - 1).toISOString(),
+  };
+}
+
 class AnalyticsService {
   private cache: Map<string, CachedResult> = new Map();
   private CACHE_TTL = 60000; // 60 seconds
@@ -29,31 +74,31 @@ class AnalyticsService {
     if (cached) return cached;
 
     const now = new Date();
-    const today = now.toISOString().split('T')[0];
+    const today = argToday();
     const clients = dataService.getClients();
     const activities = dataService.getAllActivities();
     const payments = dataService.getPayments();
 
-    // DAU - unique clients active today
-    const todayActivities = activities.filter(a => a.timestamp.startsWith(today));
+    // DAU - unique clients active today (Argentina time)
+    const todayActivities = activities.filter(a => toArgDate(a.timestamp) === today);
     const dauSet = new Set(todayActivities.map(a => a.clientId));
     const dau = dauSet.size;
 
-    // Revenue today
-    const todayPayments = payments.filter(p => p.createdAt.startsWith(today) && p.status === 'approved');
+    // Revenue today (Argentina time)
+    const todayPayments = payments.filter(p => toArgDate(p.createdAt) === today && p.status === 'approved');
     const depositsToday = todayPayments.filter(p => p.type === 'deposit').reduce((s, p) => s + p.amount, 0);
     const withdrawalsToday = todayPayments.filter(p => p.type === 'withdrawal').reduce((s, p) => s + p.amount, 0);
     const revenueToday = depositsToday - withdrawalsToday;
 
-    // Active sessions (logins in last 30 min without session_end)
+    // Active sessions (logins in last 30 min)
     const thirtyMinAgo = new Date(now.getTime() - 30 * 60 * 1000).toISOString();
     const recentLogins = activities.filter(a =>
       a.action === 'login' && a.timestamp >= thirtyMinAgo
     );
     const activeSessions = new Set(recentLogins.map(a => a.clientId)).size;
 
-    // New clients today
-    const newToday = clients.filter(c => c.createdAt.startsWith(today)).length;
+    // New clients today (Argentina time)
+    const newToday = clients.filter(c => toArgDate(c.createdAt) === today).length;
 
     // Total clients
     const totalClients = clients.length;
@@ -218,25 +263,26 @@ class AnalyticsService {
       actionCounts[a.action] = (actionCounts[a.action] || 0) + 1;
     });
 
-    // Daily activity for last 30 days
-    const now = new Date();
+    // Daily activity for last 30 days (Argentina time)
+    const today = argToday();
     const dailyActivity: { date: string; count: number }[] = [];
     for (let i = 29; i >= 0; i--) {
-      const d = new Date(now);
+      const d = new Date(today + 'T12:00:00');
       d.setDate(d.getDate() - i);
       const dateStr = d.toISOString().split('T')[0];
-      const count = activities.filter(a => a.timestamp.startsWith(dateStr)).length;
+      const count = activities.filter(a => toArgDate(a.timestamp) === dateStr).length;
       dailyActivity.push({ date: dateStr, count });
     }
 
-    // Session frequency
+    // Session frequency (Argentina dates)
     const loginDates = new Set(
       activities
         .filter(a => a.action === 'login')
-        .map(a => a.timestamp.split('T')[0])
+        .map(a => toArgDate(a.timestamp))
     );
     const daysActive = loginDates.size;
     const firstActivity = activities.length > 0 ? activities[activities.length - 1].timestamp : client.createdAt;
+    const now = new Date();
     const daysSinceFirst = Math.max(1, Math.ceil((now.getTime() - new Date(firstActivity).getTime()) / (24 * 60 * 60 * 1000)));
     const sessionFrequency = daysActive / Math.min(daysSinceFirst, 30); // sessions per day avg
 
@@ -283,8 +329,10 @@ class AnalyticsService {
       };
     });
 
-    // Totals
-    const allInRange = payments.filter(p => p.processedAt && p.processedAt >= from && p.processedAt <= to + 'T23:59:59');
+    // Totals — use Argentina day bounds for the range
+    const rangeStart = from + 'T03:00:00.000Z'; // Argentina midnight = UTC 03:00
+    const rangeEnd = new Date(new Date(to + 'T03:00:00.000Z').getTime() + 24 * 60 * 60 * 1000 - 1).toISOString();
+    const allInRange = payments.filter(p => p.processedAt && p.processedAt >= rangeStart && p.processedAt <= rangeEnd);
     const totalDeposits = allInRange.filter(p => p.type === 'deposit').reduce((s, p) => s + p.amount, 0);
     const totalWithdrawals = allInRange.filter(p => p.type === 'withdrawal').reduce((s, p) => s + p.amount, 0);
     const avgDeposit = allInRange.filter(p => p.type === 'deposit').length > 0
@@ -322,12 +370,12 @@ class AnalyticsService {
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekEnd.getDate() + 7);
 
-      const weekStartStr = weekStart.toISOString().split('T')[0];
-      const weekEndStr = weekEnd.toISOString().split('T')[0];
+      const weekStartStr = toArgDate(weekStart.toISOString());
+      const weekEndStr = toArgDate(weekEnd.toISOString());
 
-      // Users who registered in this week
+      // Users who registered in this week (Argentina time)
       const cohortUsers = clients.filter(c => {
-        const d = c.createdAt.split('T')[0];
+        const d = toArgDate(c.createdAt);
         return d >= weekStartStr && d < weekEndStr;
       });
 
@@ -445,7 +493,7 @@ class AnalyticsService {
     return result;
   }
 
-  // ── PEAK HOURS ─────────────────────────────
+  // ── PEAK HOURS (Argentina timezone) ─────────
   getPeakHours(from?: string, to?: string) {
     const cacheKey = `peak-hours-${from}-${to}`;
     const cached = this.getCached(cacheKey);
@@ -453,12 +501,12 @@ class AnalyticsService {
 
     const activities = dataService.getAllActivities();
     const filtered = (from && to)
-      ? activities.filter(a => a.timestamp >= from && a.timestamp <= to + 'T23:59:59')
+      ? activities.filter(a => a.timestamp >= from + 'T03:00:00.000Z' && a.timestamp <= new Date(new Date(to + 'T03:00:00.000Z').getTime() + 24 * 60 * 60 * 1000 - 1).toISOString())
       : activities;
 
     const hourCounts = new Array(24).fill(0);
     filtered.forEach(a => {
-      const hour = new Date(a.timestamp).getHours();
+      const hour = toArgHour(a.timestamp);
       hourCounts[hour]++;
     });
 
@@ -484,7 +532,7 @@ class AnalyticsService {
     const entries = events.flatMap(e => dataService.getEventEntries(e.id));
 
     const filtered = (from && to)
-      ? activities.filter(a => a.timestamp >= from && a.timestamp <= to + 'T23:59:59')
+      ? activities.filter(a => a.timestamp >= from + 'T03:00:00.000Z' && a.timestamp <= new Date(new Date(to + 'T03:00:00.000Z').getTime() + 24 * 60 * 60 * 1000 - 1).toISOString())
       : activities;
 
     // Messages per user
@@ -525,15 +573,15 @@ class AnalyticsService {
 
     const activities = dataService.getAllActivities();
     const filtered = (from && to)
-      ? activities.filter(a => a.timestamp >= from && a.timestamp <= to + 'T23:59:59')
+      ? activities.filter(a => a.timestamp >= from + 'T03:00:00.000Z' && a.timestamp <= new Date(new Date(to + 'T03:00:00.000Z').getTime() + 24 * 60 * 60 * 1000 - 1).toISOString())
       : activities;
 
     const logins = filtered.filter(a => a.action === 'login' || a.action === 'session_start');
 
-    // Unique sessions per day
+    // Unique sessions per day (Argentina dates)
     const sessionsByDay: Record<string, Set<number>> = {};
     logins.forEach(a => {
-      const day = a.timestamp.split('T')[0];
+      const day = toArgDate(a.timestamp);
       if (!sessionsByDay[day]) sessionsByDay[day] = new Set();
       sessionsByDay[day].add(a.clientId);
     });
@@ -569,8 +617,9 @@ class AnalyticsService {
   // ── HELPERS ────────────────────────────────
   private generateDateRange(from: string, to: string, period: 'day' | 'week' | 'month'): string[] {
     const dates: string[] = [];
-    const start = new Date(from);
-    const end = new Date(to);
+    // Use noon to avoid DST edge cases
+    const start = new Date(from + 'T12:00:00');
+    const end = new Date(to + 'T12:00:00');
 
     if (period === 'day') {
       const current = new Date(start);
@@ -599,27 +648,25 @@ class AnalyticsService {
   }
 
   private getPeriodBounds(dateStr: string, period: 'day' | 'week' | 'month'): { start: string; end: string } {
-    const date = new Date(dateStr);
-
     if (period === 'day') {
-      return {
-        start: dateStr + 'T00:00:00.000Z',
-        end: dateStr + 'T23:59:59.999Z',
-      };
+      // Argentina day: midnight AR = 03:00 UTC
+      return argDayToUtcBounds(dateStr);
     } else if (period === 'week') {
-      const end = new Date(date);
+      const end = new Date(dateStr + 'T12:00:00');
       end.setDate(end.getDate() + 6);
+      const endStr = end.toISOString().split('T')[0];
       return {
-        start: dateStr + 'T00:00:00.000Z',
-        end: end.toISOString().split('T')[0] + 'T23:59:59.999Z',
+        start: dateStr + 'T03:00:00.000Z',
+        end: new Date(new Date(endStr + 'T03:00:00.000Z').getTime() + 24 * 60 * 60 * 1000 - 1).toISOString(),
       };
     } else {
-      const end = new Date(date);
+      const end = new Date(dateStr + 'T12:00:00');
       end.setMonth(end.getMonth() + 1);
-      end.setDate(0);
+      end.setDate(0); // last day of month
+      const endStr = end.toISOString().split('T')[0];
       return {
-        start: dateStr + 'T00:00:00.000Z',
-        end: end.toISOString().split('T')[0] + 'T23:59:59.999Z',
+        start: dateStr + 'T03:00:00.000Z',
+        end: new Date(new Date(endStr + 'T03:00:00.000Z').getTime() + 24 * 60 * 60 * 1000 - 1).toISOString(),
       };
     }
   }
