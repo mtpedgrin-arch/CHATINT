@@ -3425,20 +3425,26 @@ html, body {
   function checkActiveEvent() {
     var url = API_BASE + '/api/events/active';
     if (state.clientId) url += '?clientId=' + state.clientId;
+    console.log('[Widget] checkActiveEvent → ' + url);
     fetch(url)
       .then(function(r) { return r.json(); })
       .then(function(data) {
+        console.log('[Widget] checkActiveEvent response:', data);
         if (data.event) {
           state.activeEvent = data.event;
           state.eventJoined = data.alreadyJoined || false;
           showEventBanner();
           startEventTimer();
+          // Refresh menu buttons so PARTICIPAR appears
+          if (state.chatState === 'options' || state.chatState === 'welcome' || state.chatState === 'idle' || !state.chatState) {
+            showMainOptions();
+          }
         } else {
           hideEventBanner();
           state.activeEvent = null;
         }
       })
-      .catch(function() {});
+      .catch(function(err) { console.error('[Widget] checkActiveEvent error:', err); });
   }
 
   function showEventBanner() {
