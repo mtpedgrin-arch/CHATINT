@@ -54,6 +54,53 @@ function getToday() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
 }
 
+function getYesterday() {
+  const d = new Date(getToday() + 'T12:00:00');
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().split('T')[0];
+}
+
+function getPresetRange(preset) {
+  const today = getToday();
+  switch (preset) {
+    case 'hoy':
+      return { from: today, to: today };
+    case 'ayer': {
+      const y = getYesterday();
+      return { from: y, to: y };
+    }
+    case 'semana':
+      return { from: getDaysAgo(7), to: today };
+    case 'mes':
+      // First day of current month
+      return { from: today.slice(0, 8) + '01', to: today };
+    case 'mes_pasado': {
+      const d = new Date(today + 'T12:00:00');
+      d.setDate(1);
+      d.setMonth(d.getMonth() - 1);
+      const firstDay = d.toISOString().split('T')[0];
+      const e = new Date(d);
+      e.setMonth(e.getMonth() + 1);
+      e.setDate(0);
+      const lastDay = e.toISOString().split('T')[0];
+      return { from: firstDay, to: lastDay };
+    }
+    case 'custom':
+      return null; // don't change
+    default:
+      return { from: today, to: today };
+  }
+}
+
+const DATE_PRESETS = [
+  { id: 'hoy', label: 'Hoy' },
+  { id: 'ayer', label: 'Ayer' },
+  { id: 'semana', label: 'Últimos 7 días' },
+  { id: 'mes', label: 'Este mes' },
+  { id: 'mes_pasado', label: 'Mes pasado' },
+  { id: 'custom', label: 'Personalizado' },
+];
+
 // ── KPI Card ──
 function KPICard({ label, value, icon, color = '#6c5ce7', sub }) {
   return (
@@ -71,7 +118,8 @@ function KPICard({ label, value, icon, color = '#6c5ce7', sub }) {
 // ── Main Component ──
 export default function Analytics() {
   const [tab, setTab] = useState('general');
-  const [dateRange, setDateRange] = useState({ from: getDaysAgo(30), to: getToday() });
+  const [datePreset, setDatePreset] = useState('hoy');
+  const [dateRange, setDateRange] = useState({ from: getToday(), to: getToday() });
   const [loading, setLoading] = useState(false);
 
   // Data states
@@ -165,9 +213,27 @@ export default function Analytics() {
           ))}
         </div>
         <div style={styles.dateRange}>
-          <input type="date" value={dateRange.from} onChange={e => setDateRange(p => ({ ...p, from: e.target.value }))} style={styles.dateInput} />
-          <span style={{ color: '#888' }}>→</span>
-          <input type="date" value={dateRange.to} onChange={e => setDateRange(p => ({ ...p, to: e.target.value }))} style={styles.dateInput} />
+          <select
+            value={datePreset}
+            onChange={e => {
+              const preset = e.target.value;
+              setDatePreset(preset);
+              const range = getPresetRange(preset);
+              if (range) setDateRange(range);
+            }}
+            style={styles.dateSelect}
+          >
+            {DATE_PRESETS.map(p => (
+              <option key={p.id} value={p.id}>{p.label}</option>
+            ))}
+          </select>
+          {datePreset === 'custom' && (
+            <>
+              <input type="date" value={dateRange.from} onChange={e => setDateRange(p => ({ ...p, from: e.target.value }))} style={styles.dateInput} />
+              <span style={{ color: '#888' }}>→</span>
+              <input type="date" value={dateRange.to} onChange={e => setDateRange(p => ({ ...p, to: e.target.value }))} style={styles.dateInput} />
+            </>
+          )}
           <button onClick={loadData} style={styles.refreshBtn}>🔄</button>
         </div>
       </div>
@@ -705,6 +771,11 @@ const styles = {
   },
   tabActive: { background: '#6c5ce7', color: '#fff' },
   dateRange: { display: 'flex', alignItems: 'center', gap: 8 },
+  dateSelect: {
+    background: 'rgba(108,92,231,0.15)', border: '1px solid rgba(108,92,231,0.4)', borderRadius: 8,
+    color: '#a29bfe', padding: '7px 12px', fontSize: 13, fontWeight: 600,
+    cursor: 'pointer', outline: 'none',
+  },
   dateInput: {
     background: 'rgba(255,255,255,0.08)', border: '1px solid #333', borderRadius: 6,
     color: '#ccc', padding: '6px 10px', fontSize: 12,
