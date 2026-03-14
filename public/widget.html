@@ -3785,15 +3785,55 @@ html, body {
     // ── Canvas scratch logic ──
     var ctx = canvas.getContext('2d');
     var isScratching = false;
-    var hasCalledAPI = false;
-    var apiError = false;
-    var resultData = null;
-    var revealThreshold = 45; // % scratched to auto-reveal
-    var revealed = false;
+    var revealThreshold = 45;
+    var finished = false; // true once result is shown
+
+    // === CALL API IMMEDIATELY when popup opens (don't wait for scratch) ===
+    var apiPromise = null;
+    var apiResult = null;
+    var apiErrorMsg = null;
+
+    console.log('[SCRATCH] Opening popup, clientId:', state.clientId, 'scratchId:', data.id);
+    apiPromise = fetch(API_BASE + '/api/scratch-cards/' + data.id + '/play', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientId: state.clientId,
+        clientName: state.visitorName || '',
+      }),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      console.log('[SCRATCH] API result:', JSON.stringify(res));
+      if (res.error) {
+        apiErrorMsg = res.error;
+        return null;
+      }
+      apiResult = res;
+      // Fill prize emojis under the scratch layer
+      var cells = prizeLayer.querySelectorAll('.scratch-prize-cell');
+      cells.forEach(function(c) {
+        var idx = parseInt(c.dataset.index);
+        var row = Math.floor(idx / 3);
+        var col = idx % 3;
+        var emoji = res.grid && res.grid[row] && res.grid[row][col] ? res.grid[row][col] : '❓';
+        c.textContent = emoji;
+        c.style.fontSize = '36px';
+        if (res.won && res.prizeEmoji && emoji === res.prizeEmoji) {
+          c.style.background = 'linear-gradient(135deg,rgba(212,168,67,0.2),rgba(212,168,67,0.05))';
+          c.style.boxShadow = 'inset 0 0 15px rgba(212,168,67,0.2)';
+        }
+      });
+      return res;
+    })
+    .catch(function(err) {
+      console.error('[SCRATCH] API error:', err);
+      apiErrorMsg = 'Error de conexión';
+      return null;
+    });
 
     // Draw the scratch coating (silver metallic look)
     function drawScratchCoating() {
-      // Metallic gradient background
       var grad = ctx.createLinearGradient(0, 0, 270, 270);
       grad.addColorStop(0, '#b8b8b8');
       grad.addColorStop(0.3, '#d4d4d4');
@@ -3802,60 +3842,32 @@ html, body {
       grad.addColorStop(1, '#9a9a9a');
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, 270, 270);
-
-      // Add metallic texture with scratchy lines
       ctx.strokeStyle = 'rgba(255,255,255,0.15)';
       ctx.lineWidth = 0.5;
       for (var i = 0; i < 50; i++) {
-        var x1 = Math.random() * 270;
-        var y1 = Math.random() * 270;
-        ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x1 + Math.random() * 30 - 15, y1 + Math.random() * 30 - 15);
-        ctx.stroke();
+        var x1 = Math.random() * 270, y1 = Math.random() * 270;
+        ctx.beginPath(); ctx.moveTo(x1, y1);
+        ctx.lineTo(x1 + Math.random() * 30 - 15, y1 + Math.random() * 30 - 15); ctx.stroke();
       }
-
-      // Grid lines to hint at cells
-      ctx.strokeStyle = 'rgba(0,0,0,0.12)';
-      ctx.lineWidth = 1;
-      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
       for (var g = 1; g < 3; g++) {
-        ctx.beginPath();
-        ctx.moveTo(g * 90, 0);
-        ctx.lineTo(g * 90, 270);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(0, g * 90);
-        ctx.lineTo(270, g * 90);
-        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(g * 90, 0); ctx.lineTo(g * 90, 270); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, g * 90); ctx.lineTo(270, g * 90); ctx.stroke();
       }
       ctx.setLineDash([]);
-
-      // "RASPA AQUÍ" text
-      ctx.font = 'bold 22px Arial, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillStyle = 'rgba(80,80,80,0.5)';
-      ctx.fillText('RASPÁ AQUÍ', 135, 125);
-      ctx.font = '14px Arial, sans-serif';
-      ctx.fillText('↕ ↔', 135, 155);
-
-      // Golden sparkle dots
+      ctx.font = 'bold 22px Arial, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(80,80,80,0.5)'; ctx.fillText('RASPÁ AQUÍ', 135, 125);
+      ctx.font = '14px Arial, sans-serif'; ctx.fillText('↕ ↔', 135, 155);
       ctx.fillStyle = 'rgba(212,168,67,0.3)';
       for (var s = 0; s < 15; s++) {
-        ctx.beginPath();
-        ctx.arc(Math.random() * 270, Math.random() * 270, Math.random() * 3 + 1, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(Math.random() * 270, Math.random() * 270, Math.random() * 3 + 1, 0, Math.PI * 2); ctx.fill();
       }
     }
     drawScratchCoating();
 
-    // Scratch with "eraser" (destination-out)
     function scratch(x, y) {
       ctx.globalCompositeOperation = 'destination-out';
-      ctx.beginPath();
-      ctx.arc(x, y, 22, 0, Math.PI * 2);
-      ctx.fill();
-      // Add some scatter for realistic scratching
+      ctx.beginPath(); ctx.arc(x, y, 22, 0, Math.PI * 2); ctx.fill();
       for (var i = 0; i < 3; i++) {
         ctx.beginPath();
         ctx.arc(x + Math.random() * 16 - 8, y + Math.random() * 16 - 8, Math.random() * 8 + 4, 0, Math.PI * 2);
@@ -3866,8 +3878,7 @@ html, body {
 
     function getPos(e) {
       var rect = canvas.getBoundingClientRect();
-      var scaleX = canvas.width / rect.width;
-      var scaleY = canvas.height / rect.height;
+      var scaleX = canvas.width / rect.width, scaleY = canvas.height / rect.height;
       if (e.touches && e.touches.length > 0) {
         return { x: (e.touches[0].clientX - rect.left) * scaleX, y: (e.touches[0].clientY - rect.top) * scaleY };
       }
@@ -3876,132 +3887,67 @@ html, body {
 
     function getScratchPercentage() {
       var pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-      var total = pixels.length / 4;
-      var transparent = 0;
-      for (var i = 3; i < pixels.length; i += 4) {
-        if (pixels[i] === 0) transparent++;
-      }
+      var total = pixels.length / 4, transparent = 0;
+      for (var i = 3; i < pixels.length; i += 4) { if (pixels[i] === 0) transparent++; }
       return (transparent / total) * 100;
     }
 
-    // Call API on first scratch
-    function callAPIOnce() {
-      if (hasCalledAPI) return;
-      hasCalledAPI = true;
-      console.log('[WIDGET] Calling scratch API, clientId:', state.clientId, 'scratchId:', data.id);
-      fetch(API_BASE + '/api/scratch-cards/' + data.id + '/play', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientId: state.clientId,
-          clientName: state.visitorName || '',
-        }),
-      })
-      .then(function(r) {
-        console.log('[WIDGET] Scratch API response status:', r.status);
-        return r.json();
-      })
-      .then(function(res) {
-        console.log('[WIDGET] Scratch API result:', JSON.stringify(res));
-        if (res.error) {
-          apiError = true;
-          // Remove canvas immediately and show error
-          if (canvas.parentNode) canvas.remove();
-          showScratchResult(overlay, false, res.error);
-          return;
-        }
-        resultData = res;
-        // Fill prize cells with actual emojis from API
-        var cells = prizeLayer.querySelectorAll('.scratch-prize-cell');
-        cells.forEach(function(c) {
-          var idx = parseInt(c.dataset.index);
-          var row = Math.floor(idx / 3);
-          var col = idx % 3;
-          var emoji = res.grid && res.grid[row] && res.grid[row][col] ? res.grid[row][col] : '❓';
-          c.textContent = emoji;
-          c.style.fontSize = '36px';
-          // Highlight winning cells
-          if (res.won && res.prizeEmoji && emoji === res.prizeEmoji) {
-            c.style.background = 'linear-gradient(135deg,rgba(212,168,67,0.2),rgba(212,168,67,0.05))';
-            c.style.boxShadow = 'inset 0 0 15px rgba(212,168,67,0.2)';
+    // === REVEAL: fade canvas then show result (waits for API) ===
+    function revealAll() {
+      if (finished) return;
+      finished = true;
+      console.log('[SCRATCH] Revealing! apiResult:', apiResult ? 'ready' : 'waiting...');
+      canvas.style.transition = 'opacity 0.6s'; canvas.style.opacity = '0';
+      canvas.style.pointerEvents = 'none'; isScratching = false;
+      var progressEl = document.getElementById('scratch-progress');
+      if (progressEl) progressEl.style.width = '100%';
+      var hintEl = document.getElementById('scratch-hint');
+      if (hintEl) hintEl.style.display = 'none';
+
+      // Wait for canvas fade (600ms) then ALWAYS wait for API promise
+      setTimeout(function() {
+        if (canvas.parentNode) canvas.remove();
+        // Wait for API to finish (it was called when popup opened, so should be done by now)
+        apiPromise.then(function() {
+          console.log('[SCRATCH] Showing result. won:', apiResult ? apiResult.won : 'error', 'error:', apiErrorMsg);
+          if (apiErrorMsg) {
+            showScratchResult(overlay, false, apiErrorMsg);
+          } else if (apiResult) {
+            var msg = apiResult.won
+              ? (apiResult.prizeEmoji + ' ' + apiResult.prizeLabel + ' - $' + Number(apiResult.prizeAmount).toLocaleString() + ' fichas!')
+              : 'Sin premio esta vez';
+            showScratchResult(overlay, apiResult.won, msg);
+          } else {
+            showScratchResult(overlay, false, 'No se pudo obtener resultado');
           }
         });
-        // If already revealed by scratch %, show result now
-        if (revealed) {
-          showScratchResult(overlay, res.won, res.won ?
-            (res.prizeEmoji + ' ' + res.prizeLabel + ' - $' + Number(res.prizeAmount).toLocaleString() + ' fichas!') :
-            'Sin premio esta vez');
-        }
-      })
-      .catch(function(err) {
-        console.error('[WIDGET] Scratch error:', err);
-        apiError = true;
-        if (canvas.parentNode) canvas.remove();
-        showScratchResult(overlay, false, 'Error de conexión. Intentá de nuevo.');
-      });
+      }, 700);
     }
 
     var lastCheck = 0;
     function onScratchMove(e) {
-      if (!isScratching || apiError || revealed) return;
+      if (!isScratching || finished) return;
       e.preventDefault();
       var pos = getPos(e);
       scratch(pos.x, pos.y);
-
-      // Call API on first scratch
-      callAPIOnce();
-
-      // Check percentage periodically (not every frame)
       var now = Date.now();
       if (now - lastCheck > 300) {
         lastCheck = now;
         var pct = getScratchPercentage();
         var progressEl = document.getElementById('scratch-progress');
         if (progressEl) progressEl.style.width = Math.min(pct / revealThreshold * 100, 100) + '%';
-
-        if (pct >= revealThreshold) {
-          // Reveal everything!
-          revealAll();
-        }
+        if (pct >= revealThreshold) revealAll();
       }
     }
 
-    function revealAll() {
-      if (revealed || apiError) return;
-      revealed = true;
-      // Remove canvas with fade
-      canvas.style.transition = 'opacity 0.6s';
-      canvas.style.opacity = '0';
-      canvas.style.pointerEvents = 'none';
-      isScratching = false;
-
-      var progressEl = document.getElementById('scratch-progress');
-      if (progressEl) progressEl.style.width = '100%';
-
-      var hintEl = document.getElementById('scratch-hint');
-      if (hintEl) hintEl.style.display = 'none';
-
-      setTimeout(function() {
-        if (canvas.parentNode) canvas.remove();
-        // Show result if API already responded
-        if (resultData) {
-          showScratchResult(overlay, resultData.won, resultData.won ?
-            (resultData.prizeEmoji + ' ' + resultData.prizeLabel + ' - $' + Number(resultData.prizeAmount).toLocaleString() + ' fichas!') :
-            'Sin premio esta vez');
-        }
-        // If resultData is still null, the callAPIOnce .then() will call showScratchResult
-        // when it eventually resolves (it checks the `revealed` flag)
-      }, 700);
-    }
-
     // Mouse events
-    canvas.addEventListener('mousedown', function(e) { isScratching = true; var pos = getPos(e); scratch(pos.x, pos.y); callAPIOnce(); });
+    canvas.addEventListener('mousedown', function(e) { if (finished) return; isScratching = true; var pos = getPos(e); scratch(pos.x, pos.y); });
     canvas.addEventListener('mousemove', onScratchMove);
     canvas.addEventListener('mouseup', function() { isScratching = false; });
     canvas.addEventListener('mouseleave', function() { isScratching = false; });
 
     // Touch events
-    canvas.addEventListener('touchstart', function(e) { e.preventDefault(); isScratching = true; var pos = getPos(e); scratch(pos.x, pos.y); callAPIOnce(); }, { passive: false });
+    canvas.addEventListener('touchstart', function(e) { if (finished) return; e.preventDefault(); isScratching = true; var pos = getPos(e); scratch(pos.x, pos.y); }, { passive: false });
     canvas.addEventListener('touchmove', function(e) { onScratchMove(e); }, { passive: false });
     canvas.addEventListener('touchend', function() { isScratching = false; });
     canvas.addEventListener('touchcancel', function() { isScratching = false; });
