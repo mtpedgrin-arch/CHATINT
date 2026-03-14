@@ -81,6 +81,24 @@ router.post('/admin/roulettes/:id/end', (req: Request, res: Response) => {
   res.json(updated);
 });
 
+// Test endpoint: re-emit socket event for active roulette
+router.post('/admin/roulettes/test-emit', (req: Request, res: Response) => {
+  const r = dataService.getActiveRoulette();
+  if (!r) return res.status(400).json({ error: 'No hay ruleta activa' });
+  const io = req.app.get('io');
+  if (io) {
+    const payload = {
+      id: r.id,
+      name: r.name,
+      segments: r.segments.map(s => ({ label: s.label, color: s.color, emoji: s.emoji })),
+    };
+    io.emit('roulette:started', payload);
+    res.json({ ok: true, emitted: payload, connectedSockets: io.engine?.clientsCount || 'unknown' });
+  } else {
+    res.status(500).json({ error: 'Socket.IO no disponible' });
+  }
+});
+
 // ============================================
 // WIDGET ENDPOINTS
 // ============================================

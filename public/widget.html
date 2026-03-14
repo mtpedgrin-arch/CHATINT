@@ -2350,21 +2350,28 @@ html, body {
 
     // ── RULETA ──
     state.socket.on('roulette:started', (data) => {
-      console.log('[WIDGET] Roulette started:', data);
-      // If segments not included, fetch from API
-      if (!data.segments || data.segments.length === 0) {
-        fetch(API_BASE + '/api/roulettes/active')
-          .then(function(r) { return r.json(); })
-          .then(function(res) {
-            if (res.roulette) {
-              showRoulettePopup({ id: data.id, name: data.name, segments: res.roulette.segments });
-            } else {
-              showRoulettePopup(data);
-            }
-          })
-          .catch(function() { showRoulettePopup(data); });
-      } else {
-        showRoulettePopup(data);
+      console.log('[WIDGET] *** ROULETTE STARTED ***', JSON.stringify(data));
+      addBotMessage('🎡 Se activo la Ruleta de Premios! Gira para ganar!');
+      try {
+        // If segments not included, fetch from API
+        if (!data.segments || data.segments.length === 0) {
+          console.log('[WIDGET] No segments in event, fetching from API...');
+          fetch(API_BASE + '/api/roulettes/active')
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+              console.log('[WIDGET] Roulette API response:', JSON.stringify(res));
+              if (res.roulette) {
+                showRoulettePopup({ id: data.id, name: data.name, segments: res.roulette.segments });
+              } else {
+                showRoulettePopup(data);
+              }
+            })
+            .catch(function(err) { console.error('[WIDGET] Roulette fetch error:', err); showRoulettePopup(data); });
+        } else {
+          showRoulettePopup(data);
+        }
+      } catch(err) {
+        console.error('[WIDGET] Roulette popup error:', err);
       }
     });
 
@@ -3382,7 +3389,7 @@ html, body {
   // RULETA POPUP
   // ============================================
   function showRoulettePopup(data) {
-    if (!state.clientId) return;
+    console.log('[WIDGET] showRoulettePopup called, clientId:', state.clientId, 'open:', state.open);
     if (!state.open) toggleWidget(true);
 
     var existing = document.getElementById('roulette-overlay');
@@ -3469,6 +3476,10 @@ html, body {
 
     spinBtn.onclick = function() {
       if (hasSpun) return;
+      if (!state.clientId) {
+        addBotMessage('Tenes que estar logueado para girar la ruleta.');
+        return;
+      }
       hasSpun = true;
       spinBtn.textContent = 'Girando...';
       spinBtn.style.opacity = '0.6';
