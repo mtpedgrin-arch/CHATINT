@@ -3705,7 +3705,6 @@ html, body {
   // ============================================
   function showScratchPopup(data) {
     // data: { id, name }
-
     var existing = document.getElementById('scratch-overlay');
     if (existing) existing.remove();
 
@@ -3714,120 +3713,288 @@ html, body {
     overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:auto;';
 
     var card = document.createElement('div');
-    card.style.cssText = 'background:#1a1a2e;border:2px solid #D4A843;border-radius:16px;padding:20px;width:100%;max-width:300px;text-align:center;';
+    card.style.cssText = 'background:#1a1a2e;border:2px solid #D4A843;border-radius:16px;padding:20px;width:100%;max-width:320px;text-align:center;';
 
+    // Header
     var header = document.createElement('div');
-    header.style.cssText = 'font-size:14px;color:#D4A843;font-weight:700;margin-bottom:4px;';
-    header.textContent = 'RASPA Y GANA!';
+    header.style.cssText = 'font-size:18px;color:#D4A843;font-weight:700;margin-bottom:4px;text-shadow:0 0 10px rgba(212,168,67,0.5);';
+    header.textContent = '🎫 RASPA Y GANÁ!';
     card.appendChild(header);
 
     var subtitle = document.createElement('div');
     subtitle.style.cssText = 'font-size:12px;color:#888;margin-bottom:16px;';
-    subtitle.textContent = data.name || 'Raspa las celdas para descubrir tu premio';
+    subtitle.textContent = data.name || 'Raspá la tarjeta para descubrir tu premio';
     card.appendChild(subtitle);
 
-    // Grid 3x3 with scratch cells
-    var grid = document.createElement('div');
-    grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-width:210px;margin:0 auto 16px;';
+    // Scratch card container
+    var scratchContainer = document.createElement('div');
+    scratchContainer.style.cssText = 'position:relative;width:270px;height:270px;margin:0 auto 12px;border-radius:12px;overflow:hidden;border:2px solid rgba(212,168,67,0.4);box-shadow:0 0 20px rgba(212,168,67,0.15);';
 
-    var scratched = 0;
-    var totalCells = 9;
-    var resultData = null;
+    // Prize layer (hidden underneath) - 3x3 grid
+    var prizeLayer = document.createElement('div');
+    prizeLayer.id = 'scratch-prize-layer';
+    prizeLayer.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:0;background:#0d0d1a;';
 
-    for (var i = 0; i < totalCells; i++) {
-      var cell = document.createElement('div');
-      cell.style.cssText = 'width:62px;height:62px;background:linear-gradient(135deg,#888,#aaa);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:24px;color:#fff;font-weight:700;user-select:none;transition:all 0.3s;position:relative;overflow:hidden;';
-      cell.textContent = '?';
-      cell.dataset.index = String(i);
-      cell.dataset.scratched = 'false';
-
-      cell.onclick = (function(cellEl, cellIndex) {
-        return function() {
-          if (cellEl.dataset.scratched === 'true') return;
-          cellEl.dataset.scratched = 'true';
-          scratched++;
-
-          // On first scratch, call API to get result
-          if (scratched === 1 && !resultData) {
-            fetch(API_BASE + '/api/scratch-cards/' + data.id + '/play', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                clientId: state.clientId,
-                clientName: state.visitorName || '',
-              }),
-            })
-            .then(function(r) { return r.json(); })
-            .then(function(res) {
-              if (res.error) {
-                // Already played
-                showScratchResult(overlay, false, res.error);
-                return;
-              }
-              resultData = res;
-              // Reveal this cell
-              revealCell(cellEl, cellIndex, res.grid);
-              // After 3 scratches or after 2 seconds, reveal all
-              checkRevealAll(grid, overlay, res);
-            })
-            .catch(function(err) {
-              console.error('[WIDGET] Scratch error:', err);
-              cellEl.textContent = '?';
-              cellEl.dataset.scratched = 'false';
-              scratched--;
-            });
-          } else if (resultData) {
-            revealCell(cellEl, cellIndex, resultData.grid);
-            checkRevealAll(grid, overlay, resultData);
-          }
-        };
-      })(cell, i);
-
-      grid.appendChild(cell);
+    for (var i = 0; i < 9; i++) {
+      var prizeCell = document.createElement('div');
+      prizeCell.className = 'scratch-prize-cell';
+      prizeCell.dataset.index = String(i);
+      prizeCell.style.cssText = 'display:flex;align-items:center;justify-content:center;font-size:32px;background:linear-gradient(135deg,#0d0d1a,#1a1a2e);border:1px solid rgba(212,168,67,0.1);';
+      prizeCell.textContent = '❓';
+      prizeLayer.appendChild(prizeCell);
     }
+    scratchContainer.appendChild(prizeLayer);
 
-    card.appendChild(grid);
+    // Canvas scratch layer on top
+    var canvas = document.createElement('canvas');
+    canvas.id = 'scratch-canvas';
+    canvas.width = 270;
+    canvas.height = 270;
+    canvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;cursor:crosshair;touch-action:none;';
+    scratchContainer.appendChild(canvas);
 
+    card.appendChild(scratchContainer);
+
+    // Hint
     var hint = document.createElement('div');
-    hint.style.cssText = 'font-size:11px;color:#666;';
-    hint.textContent = 'Toca las celdas para raspar';
+    hint.id = 'scratch-hint';
+    hint.style.cssText = 'font-size:12px;color:#888;margin-bottom:4px;';
+    hint.innerHTML = '👆 <b>Raspá con el dedo</b> para descubrir tu premio';
     card.appendChild(hint);
 
-    overlay.appendChild(card);
+    // Progress bar
+    var progressBar = document.createElement('div');
+    progressBar.style.cssText = 'width:100%;height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;margin-bottom:8px;';
+    var progressFill = document.createElement('div');
+    progressFill.id = 'scratch-progress';
+    progressFill.style.cssText = 'height:100%;width:0%;background:linear-gradient(90deg,#D4A843,#f59e0b);border-radius:2px;transition:width 0.3s;';
+    progressBar.appendChild(progressFill);
+    card.appendChild(progressBar);
 
+    // Close button (small X)
+    var closeX = document.createElement('button');
+    closeX.textContent = '✕';
+    closeX.style.cssText = 'position:absolute;top:8px;right:12px;background:none;border:none;color:#666;font-size:18px;cursor:pointer;z-index:10;';
+    closeX.onclick = function() { overlay.remove(); };
+    card.style.position = 'relative';
+    card.appendChild(closeX);
+
+    overlay.appendChild(card);
     document.body.appendChild(overlay);
 
-    function revealCell(cellEl, idx, gridData) {
-      if (!gridData) return;
-      var row = Math.floor(idx / 3);
-      var col = idx % 3;
-      var emoji = gridData[row] && gridData[row][col] ? gridData[row][col] : '?';
-      cellEl.textContent = emoji;
-      cellEl.style.background = 'rgba(212,168,67,0.15)';
-      cellEl.style.border = '1px solid rgba(212,168,67,0.3)';
-      cellEl.style.cursor = 'default';
-      cellEl.style.transform = 'scale(1.05)';
-      setTimeout(function() { cellEl.style.transform = 'scale(1)'; }, 200);
-    }
+    // ── Canvas scratch logic ──
+    var ctx = canvas.getContext('2d');
+    var isScratching = false;
+    var hasCalledAPI = false;
+    var resultData = null;
+    var revealThreshold = 45; // % scratched to auto-reveal
 
-    function checkRevealAll(gridEl, overlayEl, res) {
-      if (scratched >= 3) {
-        // Reveal all remaining after a short delay
-        setTimeout(function() {
-          var cells = gridEl.querySelectorAll('div');
-          cells.forEach(function(c, ci) {
-            if (c.dataset.scratched !== 'true') {
-              c.dataset.scratched = 'true';
-              revealCell(c, ci, res.grid);
-            }
-          });
-          // Show result after reveal animation
-          setTimeout(function() {
-            showScratchResult(overlayEl, res.won, res.won ? (res.prizeEmoji + ' ' + res.prizeLabel + ' - $' + Number(res.prizeAmount).toLocaleString() + ' fichas!') : 'Sin premio esta vez');
-          }, 600);
-        }, 400);
+    // Draw the scratch coating (silver metallic look)
+    function drawScratchCoating() {
+      // Metallic gradient background
+      var grad = ctx.createLinearGradient(0, 0, 270, 270);
+      grad.addColorStop(0, '#b8b8b8');
+      grad.addColorStop(0.3, '#d4d4d4');
+      grad.addColorStop(0.5, '#a8a8a8');
+      grad.addColorStop(0.7, '#c8c8c8');
+      grad.addColorStop(1, '#9a9a9a');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 270, 270);
+
+      // Add metallic texture with scratchy lines
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+      ctx.lineWidth = 0.5;
+      for (var i = 0; i < 50; i++) {
+        var x1 = Math.random() * 270;
+        var y1 = Math.random() * 270;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x1 + Math.random() * 30 - 15, y1 + Math.random() * 30 - 15);
+        ctx.stroke();
+      }
+
+      // Grid lines to hint at cells
+      ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      for (var g = 1; g < 3; g++) {
+        ctx.beginPath();
+        ctx.moveTo(g * 90, 0);
+        ctx.lineTo(g * 90, 270);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, g * 90);
+        ctx.lineTo(270, g * 90);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+
+      // "RASPA AQUÍ" text
+      ctx.font = 'bold 22px Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(80,80,80,0.5)';
+      ctx.fillText('RASPÁ AQUÍ', 135, 125);
+      ctx.font = '14px Arial, sans-serif';
+      ctx.fillText('↕ ↔', 135, 155);
+
+      // Golden sparkle dots
+      ctx.fillStyle = 'rgba(212,168,67,0.3)';
+      for (var s = 0; s < 15; s++) {
+        ctx.beginPath();
+        ctx.arc(Math.random() * 270, Math.random() * 270, Math.random() * 3 + 1, 0, Math.PI * 2);
+        ctx.fill();
       }
     }
+    drawScratchCoating();
+
+    // Scratch with "eraser" (destination-out)
+    function scratch(x, y) {
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.beginPath();
+      ctx.arc(x, y, 22, 0, Math.PI * 2);
+      ctx.fill();
+      // Add some scatter for realistic scratching
+      for (var i = 0; i < 3; i++) {
+        ctx.beginPath();
+        ctx.arc(x + Math.random() * 16 - 8, y + Math.random() * 16 - 8, Math.random() * 8 + 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    function getPos(e) {
+      var rect = canvas.getBoundingClientRect();
+      var scaleX = canvas.width / rect.width;
+      var scaleY = canvas.height / rect.height;
+      if (e.touches && e.touches.length > 0) {
+        return { x: (e.touches[0].clientX - rect.left) * scaleX, y: (e.touches[0].clientY - rect.top) * scaleY };
+      }
+      return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+    }
+
+    function getScratchPercentage() {
+      var pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      var total = pixels.length / 4;
+      var transparent = 0;
+      for (var i = 3; i < pixels.length; i += 4) {
+        if (pixels[i] === 0) transparent++;
+      }
+      return (transparent / total) * 100;
+    }
+
+    // Call API on first scratch
+    function callAPIOnce() {
+      if (hasCalledAPI) return;
+      hasCalledAPI = true;
+      fetch(API_BASE + '/api/scratch-cards/' + data.id + '/play', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: state.clientId,
+          clientName: state.visitorName || '',
+        }),
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        if (res.error) {
+          showScratchResult(overlay, false, res.error);
+          return;
+        }
+        resultData = res;
+        // Fill prize cells with actual emojis from API
+        var cells = prizeLayer.querySelectorAll('.scratch-prize-cell');
+        cells.forEach(function(c) {
+          var idx = parseInt(c.dataset.index);
+          var row = Math.floor(idx / 3);
+          var col = idx % 3;
+          var emoji = res.grid && res.grid[row] && res.grid[row][col] ? res.grid[row][col] : '❓';
+          c.textContent = emoji;
+          c.style.fontSize = '36px';
+          // Highlight winning cells
+          if (res.won && res.prizeEmoji && emoji === res.prizeEmoji) {
+            c.style.background = 'linear-gradient(135deg,rgba(212,168,67,0.2),rgba(212,168,67,0.05))';
+            c.style.boxShadow = 'inset 0 0 15px rgba(212,168,67,0.2)';
+          }
+        });
+      })
+      .catch(function(err) {
+        console.error('[WIDGET] Scratch error:', err);
+        hasCalledAPI = false;
+      });
+    }
+
+    var lastCheck = 0;
+    function onScratchMove(e) {
+      if (!isScratching) return;
+      e.preventDefault();
+      var pos = getPos(e);
+      scratch(pos.x, pos.y);
+
+      // Call API on first scratch
+      callAPIOnce();
+
+      // Check percentage periodically (not every frame)
+      var now = Date.now();
+      if (now - lastCheck > 300) {
+        lastCheck = now;
+        var pct = getScratchPercentage();
+        var progressEl = document.getElementById('scratch-progress');
+        if (progressEl) progressEl.style.width = Math.min(pct / revealThreshold * 100, 100) + '%';
+
+        if (pct >= revealThreshold) {
+          // Reveal everything!
+          revealAll();
+        }
+      }
+    }
+
+    function revealAll() {
+      // Remove canvas with fade
+      canvas.style.transition = 'opacity 0.6s';
+      canvas.style.opacity = '0';
+      canvas.style.pointerEvents = 'none';
+      isScratching = false;
+
+      var progressEl = document.getElementById('scratch-progress');
+      if (progressEl) progressEl.style.width = '100%';
+
+      var hintEl = document.getElementById('scratch-hint');
+      if (hintEl) hintEl.style.display = 'none';
+
+      setTimeout(function() {
+        if (canvas.parentNode) canvas.remove();
+        // Show result
+        if (resultData) {
+          showScratchResult(overlay, resultData.won, resultData.won ?
+            (resultData.prizeEmoji + ' ' + resultData.prizeLabel + ' - $' + Number(resultData.prizeAmount).toLocaleString() + ' fichas!') :
+            'Sin premio esta vez');
+        } else {
+          // API still loading, wait a bit
+          var waitInt = setInterval(function() {
+            if (resultData) {
+              clearInterval(waitInt);
+              showScratchResult(overlay, resultData.won, resultData.won ?
+                (resultData.prizeEmoji + ' ' + resultData.prizeLabel + ' - $' + Number(resultData.prizeAmount).toLocaleString() + ' fichas!') :
+                'Sin premio esta vez');
+            }
+          }, 200);
+          // Timeout after 5s
+          setTimeout(function() { clearInterval(waitInt); }, 5000);
+        }
+      }, 700);
+    }
+
+    // Mouse events
+    canvas.addEventListener('mousedown', function(e) { isScratching = true; var pos = getPos(e); scratch(pos.x, pos.y); callAPIOnce(); });
+    canvas.addEventListener('mousemove', onScratchMove);
+    canvas.addEventListener('mouseup', function() { isScratching = false; });
+    canvas.addEventListener('mouseleave', function() { isScratching = false; });
+
+    // Touch events
+    canvas.addEventListener('touchstart', function(e) { e.preventDefault(); isScratching = true; var pos = getPos(e); scratch(pos.x, pos.y); callAPIOnce(); }, { passive: false });
+    canvas.addEventListener('touchmove', function(e) { onScratchMove(e); }, { passive: false });
+    canvas.addEventListener('touchend', function() { isScratching = false; });
+    canvas.addEventListener('touchcancel', function() { isScratching = false; });
   }
 
   function showScratchResult(overlay, won, message) {
@@ -3835,21 +4002,21 @@ html, body {
     if (!card) return;
 
     var resultDiv = document.createElement('div');
-    resultDiv.style.cssText = 'margin-top:16px;padding:12px;border-radius:10px;text-align:center;' +
-      (won ? 'background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);' : 'background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);');
+    resultDiv.style.cssText = 'margin-top:16px;padding:16px;border-radius:12px;text-align:center;animation:fadeIn 0.5s;' +
+      (won ? 'background:linear-gradient(135deg,rgba(16,185,129,0.2),rgba(212,168,67,0.1));border:1px solid rgba(16,185,129,0.4);' : 'background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);');
 
     var icon = document.createElement('div');
-    icon.style.cssText = 'font-size:28px;margin-bottom:4px;';
+    icon.style.cssText = 'font-size:40px;margin-bottom:6px;';
     icon.textContent = won ? '🎉' : '😔';
     resultDiv.appendChild(icon);
 
     var text = document.createElement('div');
-    text.style.cssText = 'font-size:14px;font-weight:700;color:' + (won ? '#10b981' : '#888') + ';';
-    text.textContent = won ? 'Ganaste!' : 'Suerte la proxima!';
+    text.style.cssText = 'font-size:16px;font-weight:700;color:' + (won ? '#10b981' : '#888') + ';margin-bottom:4px;';
+    text.textContent = won ? '¡¡GANASTE!!' : '¡Suerte la próxima!';
     resultDiv.appendChild(text);
 
     var detail = document.createElement('div');
-    detail.style.cssText = 'font-size:12px;color:' + (won ? '#D4A843' : '#666') + ';margin-top:4px;';
+    detail.style.cssText = 'font-size:13px;color:' + (won ? '#D4A843' : '#666') + ';';
     detail.textContent = message;
     resultDiv.appendChild(detail);
 
@@ -3858,14 +4025,14 @@ html, body {
     // Close button
     var closeBtn = document.createElement('button');
     closeBtn.textContent = 'Cerrar';
-    closeBtn.style.cssText = 'margin-top:12px;padding:8px 24px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#e0e0e0;cursor:pointer;font-size:13px;';
+    closeBtn.style.cssText = 'margin-top:12px;padding:10px 32px;background:rgba(212,168,67,0.15);border:1px solid rgba(212,168,67,0.3);border-radius:8px;color:#D4A843;cursor:pointer;font-size:14px;font-weight:600;';
     closeBtn.onclick = function() { overlay.remove(); };
     card.appendChild(closeBtn);
 
     // Auto-close
     setTimeout(function() {
       if (document.getElementById('scratch-overlay')) overlay.remove();
-    }, 5000);
+    }, 8000);
   }
 
   // ============================================
