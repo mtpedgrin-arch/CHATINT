@@ -161,6 +161,15 @@ export const endEvent = (id) => apiFetch(`/api/admin/events/${id}/end`, { method
 export const drawEventWinner = (id) => apiFetch(`/api/admin/events/${id}/draw`, { method: 'POST' });
 export const claimEventPrize = (id) => apiFetch(`/api/admin/events/${id}/claim`, { method: 'POST' });
 
+// Quizzes
+export const getQuizzes = () => apiFetch('/api/admin/quizzes');
+export const getQuizById = (id) => apiFetch(`/api/admin/quizzes/${id}`);
+export const createQuiz = (data) => apiFetch('/api/admin/quizzes', { method: 'POST', body: JSON.stringify(data) });
+export const updateQuiz = (id, data) => apiFetch(`/api/admin/quizzes/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const deleteQuiz = (id) => apiFetch(`/api/admin/quizzes/${id}`, { method: 'DELETE' });
+export const startQuiz = (id) => apiFetch(`/api/admin/quizzes/${id}/start`, { method: 'POST' });
+export const endQuiz = (id) => apiFetch(`/api/admin/quizzes/${id}/end`, { method: 'POST' });
+
 // Analytics
 export const getAnalyticsOverview = () => apiFetch('/api/analytics/overview');
 export const getAnalyticsActiveUsers = (from, to, period = 'day') => apiFetch(`/api/analytics/active-users?from=${from}&to=${to}&period=${period}`);

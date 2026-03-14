@@ -270,6 +270,33 @@ export interface EventEntry {
   qualifiedAt: string | null;
 }
 
+export interface Quiz {
+  id: string;
+  question: string;
+  options: string[];
+  correctIndex: number;
+  prizeAmount: number;
+  timeLimit: number;
+  status: 'draft' | 'active' | 'ended';
+  startedAt: string | null;
+  endedAt: string | null;
+  createdAt: string;
+  createdBy: string;
+  totalAnswers: number;
+  correctAnswers: number;
+}
+
+export interface QuizAnswer {
+  id: string;
+  quizId: string;
+  clientId: number;
+  clientName: string;
+  selectedIndex: number;
+  correct: boolean;
+  answeredAt: string;
+  timeMs: number;
+}
+
 export interface ActivityLog {
   id: string;
   clientId: number;
@@ -346,6 +373,8 @@ export interface Store {
   popupTemplates: PopupTemplate[];
   events: CasinoEvent[];
   eventEntries: EventEntry[];
+  quizzes: Quiz[];
+  quizAnswers: QuizAnswer[];
   activityLogs: ActivityLog[];
   dailyAggregates: DailyAggregate[];
   paltaTransactions: PaltaTransaction[];
@@ -395,6 +424,7 @@ class DataService {
           pushSubscriptions: [], sentNotifications: [],
           popupMessages: [], popupTemplates: [],
           events: [], eventEntries: [],
+          quizzes: [], quizAnswers: [],
           activityLogs: [], dailyAggregates: [],
           paltaTransactions: [],
           paltaConfig: { email: '', password: '', enabled: false, pollIntervalSeconds: 60, autoApprove: true, headless: true, lastPollAt: null, status: 'stopped' as const, errorMessage: '' },
@@ -1141,6 +1171,78 @@ class DataService {
       drawnAt: new Date().toISOString(),
     });
     return updatedEvent ? { event: updatedEvent, winner: winnerEntry } : null;
+  }
+
+  // ── QUIZZES ──────────────────────────
+  getQuizzes(): Quiz[] {
+    return this.store.quizzes || [];
+  }
+
+  getQuizById(id: string): Quiz | undefined {
+    return (this.store.quizzes || []).find(q => q.id === id);
+  }
+
+  getActiveQuiz(): Quiz | undefined {
+    return (this.store.quizzes || []).find(q => q.status === 'active');
+  }
+
+  createQuiz(data: Omit<Quiz, 'id' | 'createdAt' | 'startedAt' | 'endedAt' | 'totalAnswers' | 'correctAnswers'>): Quiz {
+    const { v4: uuid } = require('uuid');
+    const quiz: Quiz = {
+      ...data,
+      id: uuid(),
+      createdAt: new Date().toISOString(),
+      startedAt: null,
+      endedAt: null,
+      totalAnswers: 0,
+      correctAnswers: 0,
+    };
+    if (!this.store.quizzes) this.store.quizzes = [];
+    this.store.quizzes.push(quiz);
+    this.save();
+    return quiz;
+  }
+
+  updateQuiz(id: string, data: Partial<Quiz>): Quiz | null {
+    if (!this.store.quizzes) return null;
+    const idx = this.store.quizzes.findIndex(q => q.id === id);
+    if (idx === -1) return null;
+    this.store.quizzes[idx] = { ...this.store.quizzes[idx], ...data };
+    this.save();
+    return this.store.quizzes[idx];
+  }
+
+  deleteQuiz(id: string): boolean {
+    if (!this.store.quizzes) return false;
+    const before = this.store.quizzes.length;
+    this.store.quizzes = this.store.quizzes.filter(q => q.id !== id);
+    // Also remove answers
+    if (this.store.quizAnswers) {
+      this.store.quizAnswers = this.store.quizAnswers.filter(a => a.quizId !== id);
+    }
+    this.save();
+    return this.store.quizzes.length < before;
+  }
+
+  getQuizAnswers(quizId: string): QuizAnswer[] {
+    return (this.store.quizAnswers || []).filter(a => a.quizId === quizId);
+  }
+
+  getQuizAnswerByClient(quizId: string, clientId: number): QuizAnswer | undefined {
+    return (this.store.quizAnswers || []).find(a => a.quizId === quizId && a.clientId === clientId);
+  }
+
+  createQuizAnswer(data: Omit<QuizAnswer, 'id' | 'answeredAt'>): QuizAnswer {
+    const { v4: uuid } = require('uuid');
+    const answer: QuizAnswer = {
+      ...data,
+      id: uuid(),
+      answeredAt: new Date().toISOString(),
+    };
+    if (!this.store.quizAnswers) this.store.quizAnswers = [];
+    this.store.quizAnswers.push(answer);
+    this.save();
+    return answer;
   }
 
   // ── ACTIVITY LOGS ──────────────────────────

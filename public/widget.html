@@ -1834,6 +1834,7 @@ html, body {
     activeEvent: null,
     eventJoined: false,
     eventTimerInterval: null,
+    quizTimerInterval: null,
   };
 
   // Load button options from server
@@ -2308,6 +2309,26 @@ html, body {
 
     state.socket.on('event:prize-claimed', (data) => {
       addBotMessage('🏆 ¡Tus ' + Number(data.prizeAmount).toLocaleString() + ' fichas de premio fueron acreditadas en tu cuenta!');
+    });
+
+    // ── QUIZ EN VIVO ──
+    state.socket.on('quiz:started', (data) => {
+      console.log('[WIDGET] Quiz started:', data);
+      showQuizPopup(data);
+    });
+
+    state.socket.on('quiz:ended', (data) => {
+      console.log('[WIDGET] Quiz ended:', data);
+      // If quiz popup is still open and user hasn't answered, show result
+      var quizOverlay = document.getElementById('quiz-overlay');
+      if (quizOverlay && quizOverlay.classList.contains('show')) {
+        showQuizResult(false, null, data);
+      }
+    });
+
+    state.socket.on('quiz:winner', (data) => {
+      console.log('[WIDGET] Quiz winner!', data);
+      addBotMessage('🧠 ¡Acertaste el quiz! ' + Number(data.prizeAmount).toLocaleString() + ' fichas acreditadas en tu cuenta.');
     });
 
     // ── FICHAS CARGADAS popup ──
@@ -3277,6 +3298,193 @@ html, body {
   var popupBtn = document.getElementById('popup-btn');
 
   // ============================================
+  // ============================================
+  // QUIZ EN VIVO POPUP
+  // ============================================
+  function showQuizPopup(data) {
+    // data: { id, question, options, timeLimit, prizeAmount }
+    if (!state.clientId) return; // Must be logged in
+
+    // Auto-open widget
+    if (!state.open) toggleWidget(true);
+
+    // Remove existing quiz overlay if any
+    var existing = document.getElementById('quiz-overlay');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'quiz-overlay';
+    overlay.className = 'show';
+    overlay.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;';
+
+    var card = document.createElement('div');
+    card.style.cssText = 'background:#1a1a2e;border:2px solid #8b5cf6;border-radius:16px;padding:20px;width:100%;max-width:340px;text-align:center;position:relative;overflow:hidden;';
+
+    // Timer bar
+    var timerBar = document.createElement('div');
+    timerBar.style.cssText = 'position:absolute;top:0;left:0;height:4px;background:linear-gradient(90deg,#8b5cf6,#a78bfa);width:100%;transition:width linear;border-radius:4px 4px 0 0;';
+    card.appendChild(timerBar);
+
+    // Header
+    var header = document.createElement('div');
+    header.style.cssText = 'font-size:13px;color:#8b5cf6;font-weight:700;margin-bottom:4px;margin-top:8px;';
+    header.textContent = 'QUIZ EN VIVO';
+    card.appendChild(header);
+
+    // Prize info
+    var prize = document.createElement('div');
+    prize.style.cssText = 'font-size:11px;color:#D4A843;margin-bottom:12px;';
+    prize.textContent = 'Premio: $' + Number(data.prizeAmount).toLocaleString() + ' fichas';
+    card.appendChild(prize);
+
+    // Question
+    var question = document.createElement('div');
+    question.style.cssText = 'font-size:15px;color:#e0e0e0;font-weight:600;margin-bottom:16px;line-height:1.4;';
+    question.textContent = data.question;
+    card.appendChild(question);
+
+    // Timer text
+    var timerText = document.createElement('div');
+    timerText.style.cssText = 'font-family:monospace;font-size:24px;color:#8b5cf6;font-weight:700;margin-bottom:12px;';
+    timerText.textContent = data.timeLimit + 's';
+    card.appendChild(timerText);
+
+    // Options
+    var letters = ['A', 'B', 'C', 'D'];
+    var optionsContainer = document.createElement('div');
+    optionsContainer.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px;';
+
+    data.options.forEach(function(opt, i) {
+      var btn = document.createElement('button');
+      btn.style.cssText = 'padding:10px 8px;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.3);border-radius:10px;color:#e0e0e0;font-size:12px;cursor:pointer;text-align:left;transition:all 0.2s;';
+      btn.innerHTML = '<span style="font-weight:700;color:#8b5cf6;margin-right:4px;">' + letters[i] + '.</span> ' + opt;
+      btn.onmouseover = function() { btn.style.background = 'rgba(139,92,246,0.25)'; btn.style.borderColor = '#8b5cf6'; };
+      btn.onmouseout = function() { btn.style.background = 'rgba(139,92,246,0.1)'; btn.style.borderColor = 'rgba(139,92,246,0.3)'; };
+      btn.onclick = function() {
+        answerQuiz(data.id, i, overlay, data);
+      };
+      optionsContainer.appendChild(btn);
+    });
+    card.appendChild(optionsContainer);
+
+    overlay.appendChild(card);
+
+    // Add to widget panel
+    var panel = document.querySelector('.widget-panel');
+    if (panel) {
+      panel.appendChild(overlay);
+    }
+
+    // Start countdown
+    var timeLeft = data.timeLimit;
+    var startTime = Date.now();
+    state.quizTimerInterval = setInterval(function() {
+      var elapsed = (Date.now() - startTime) / 1000;
+      var remaining = Math.max(0, data.timeLimit - elapsed);
+      timerText.textContent = Math.ceil(remaining) + 's';
+      timerBar.style.width = ((remaining / data.timeLimit) * 100) + '%';
+      if (remaining <= 3) {
+        timerText.style.color = '#ef4444';
+        timerBar.style.background = '#ef4444';
+      }
+      if (remaining <= 0) {
+        clearInterval(state.quizTimerInterval);
+        state.quizTimerInterval = null;
+        // Time's up - show missed
+        showQuizResult(false, null, { quizId: data.id, timeout: true });
+      }
+    }, 100);
+  }
+
+  function answerQuiz(quizId, selectedIndex, overlay, quizData) {
+    // Stop timer
+    if (state.quizTimerInterval) {
+      clearInterval(state.quizTimerInterval);
+      state.quizTimerInterval = null;
+    }
+
+    // Disable all buttons
+    var buttons = overlay.querySelectorAll('button');
+    buttons.forEach(function(btn) {
+      btn.style.pointerEvents = 'none';
+      btn.style.opacity = '0.5';
+    });
+
+    // Highlight selected
+    if (buttons[selectedIndex]) {
+      buttons[selectedIndex].style.opacity = '1';
+      buttons[selectedIndex].style.background = 'rgba(139,92,246,0.4)';
+      buttons[selectedIndex].style.borderColor = '#8b5cf6';
+    }
+
+    // Send answer to server
+    fetch(API_BASE + '/api/quizzes/' + quizId + '/answer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientId: state.clientId,
+        clientName: state.visitorName || '',
+        selectedIndex: selectedIndex,
+      }),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      showQuizResult(data.correct, selectedIndex, { quizId: quizId, prizeAmount: quizData.prizeAmount });
+    })
+    .catch(function(err) {
+      console.error('[WIDGET] Quiz answer error:', err);
+      showQuizResult(false, selectedIndex, { quizId: quizId, error: true });
+    });
+  }
+
+  function showQuizResult(correct, selectedIndex, data) {
+    var overlay = document.getElementById('quiz-overlay');
+    if (!overlay) return;
+
+    // Stop timer if still running
+    if (state.quizTimerInterval) {
+      clearInterval(state.quizTimerInterval);
+      state.quizTimerInterval = null;
+    }
+
+    var card = overlay.querySelector('div');
+    if (!card) return;
+
+    var resultHtml = '';
+    if (data && data.timeout) {
+      resultHtml = '<div style="text-align:center;padding:20px 0;">' +
+        '<div style="font-size:36px;margin-bottom:8px;">&#9200;</div>' +
+        '<div style="font-size:16px;font-weight:700;color:#f59e0b;">Tiempo agotado!</div>' +
+        '<div style="font-size:13px;color:#888;margin-top:6px;">No alcanzaste a responder</div>' +
+        '</div>';
+    } else if (correct) {
+      var prizeText = data && data.prizeAmount ? '$' + Number(data.prizeAmount).toLocaleString() : '';
+      resultHtml = '<div style="text-align:center;padding:20px 0;">' +
+        '<div style="font-size:36px;margin-bottom:8px;">&#127881;</div>' +
+        '<div style="font-size:16px;font-weight:700;color:#10b981;">Correcto!</div>' +
+        (prizeText ? '<div style="font-size:20px;font-weight:700;color:#D4A843;margin-top:8px;">+' + prizeText + ' fichas</div>' : '') +
+        '<div style="font-size:13px;color:#888;margin-top:6px;">Las fichas fueron acreditadas</div>' +
+        '</div>';
+    } else {
+      resultHtml = '<div style="text-align:center;padding:20px 0;">' +
+        '<div style="font-size:36px;margin-bottom:8px;">&#10060;</div>' +
+        '<div style="font-size:16px;font-weight:700;color:#ef4444;">Incorrecto</div>' +
+        '<div style="font-size:13px;color:#888;margin-top:6px;">Mejor suerte la proxima!</div>' +
+        '</div>';
+    }
+
+    // Replace card content with result
+    card.innerHTML = resultHtml +
+      '<button onclick="document.getElementById(\'quiz-overlay\').remove();" ' +
+      'style="margin-top:8px;padding:8px 24px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#e0e0e0;cursor:pointer;font-size:13px;">Cerrar</button>';
+
+    // Auto-close after 4 seconds
+    setTimeout(function() {
+      var el = document.getElementById('quiz-overlay');
+      if (el) el.remove();
+    }, 4000);
+  }
+
   // SPECIAL POPUPS: Fichas Cargadas & Retiro Pagado
   // ============================================
   function showSpecialPopup(opts) {

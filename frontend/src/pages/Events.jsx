@@ -9,8 +9,48 @@ import {
   endEvent,
   drawEventWinner,
   claimEventPrize,
+  getQuizzes,
+  getQuizById,
+  createQuiz,
+  deleteQuiz,
+  startQuiz,
+  endQuiz as endQuizApi,
 } from '../api';
 import { useToast } from '../context/ToastContext';
+
+// ============================================
+// MAIN TABS CONFIG
+// ============================================
+const mainTabs = [
+  { id: 'sorteos', label: 'Sorteos', icon: '🎰' },
+  { id: 'quiz', label: 'Quiz', icon: '🧠' },
+  { id: 'ruleta', label: 'Ruleta', icon: '🎡' },
+  { id: 'ranking', label: 'Ranking', icon: '🏆' },
+];
+
+// ============================================
+// SHARED STYLES
+// ============================================
+const labelStyle = { display: 'block', fontSize: 12, color: '#999', marginBottom: 4 };
+const inputStyle = {
+  width: '100%',
+  padding: '8px 12px',
+  background: 'rgba(255,255,255,0.05)',
+  border: '1px solid rgba(255,255,255,0.1)',
+  borderRadius: 8,
+  color: '#e0e0e0',
+  fontSize: 14,
+  outline: 'none',
+};
+const btnStyle = {
+  padding: '8px 18px',
+  border: 'none',
+  borderRadius: 8,
+  cursor: 'pointer',
+  fontSize: 13,
+};
+const thStyle = { textAlign: 'left', padding: '8px 10px', fontSize: 11, color: '#888', fontWeight: 600 };
+const tdStyle = { padding: '8px 10px', fontSize: 13, color: '#e0e0e0' };
 
 const statusLabels = {
   draft: { text: 'Borrador', color: '#6b7280', bg: 'rgba(107,114,128,0.1)' },
@@ -20,7 +60,70 @@ const statusLabels = {
   claimed: { text: 'Reclamado', color: '#3b82f6', bg: 'rgba(59,130,246,0.1)' },
 };
 
+function StatusBadge({ status }) {
+  const cfg = statusLabels[status] || statusLabels.draft;
+  return (
+    <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: cfg.bg, color: cfg.color }}>
+      {cfg.text}
+    </span>
+  );
+}
+
+function StatCard({ label, value, color }) {
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, padding: '10px 8px', textAlign: 'center' }}>
+      <div style={{ fontSize: 18, fontWeight: 700, color }}>{value}</div>
+      <div style={{ fontSize: 10, color: '#888', marginTop: 2 }}>{label}</div>
+    </div>
+  );
+}
+
+// ============================================
+// MAIN COMPONENT — Tab Wrapper
+// ============================================
 export default function Events() {
+  const [mainTab, setMainTab] = useState('sorteos');
+
+  return (
+    <div style={{ padding: 0 }}>
+      {/* Main tabs bar */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 0, background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        {mainTabs.map(t => (
+          <button
+            key={t.id}
+            onClick={() => setMainTab(t.id)}
+            style={{
+              padding: '14px 24px',
+              background: mainTab === t.id ? 'rgba(212,168,67,0.15)' : 'transparent',
+              border: 'none',
+              borderBottom: mainTab === t.id ? '3px solid #D4A843' : '3px solid transparent',
+              color: mainTab === t.id ? '#D4A843' : '#888',
+              cursor: 'pointer',
+              fontSize: 15,
+              fontWeight: mainTab === t.id ? 700 : 400,
+              transition: 'all 0.2s',
+            }}
+          >
+            {t.icon} {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      <div style={{ padding: '20px 0' }}>
+        {mainTab === 'sorteos' && <SorteosTab />}
+        {mainTab === 'quiz' && <QuizTab />}
+        {mainTab === 'ruleta' && <RuletaTab />}
+        {mainTab === 'ranking' && <RankingTab />}
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// SORTEOS TAB (existing Events functionality)
+// ============================================
+function SorteosTab() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('create');
   const [events, setEvents] = useState([]);
@@ -48,7 +151,6 @@ export default function Events() {
     };
   }, []);
 
-  // Auto-refresh active event detail
   useEffect(() => {
     if (!activeEvent) return;
     const interval = setInterval(() => {
@@ -57,7 +159,6 @@ export default function Events() {
     return () => clearInterval(interval);
   }, [activeEvent?.id]);
 
-  // Countdown timer
   useEffect(() => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (!activeEvent || !activeEvent.endsAt) return;
@@ -66,7 +167,7 @@ export default function Events() {
       if (diff <= 0) {
         setCountdown('00:00');
         clearInterval(timerRef.current);
-        loadData(); // Refresh to see status change
+        loadData();
         return;
       }
       const m = Math.floor(diff / 60000);
@@ -90,7 +191,6 @@ export default function Events() {
       } else {
         setActiveEvent(null);
         setActiveEventDetail(null);
-        // If there's a recently drawn/ended event, show it
         const drawn = data.find(e => e.status === 'drawn' || e.status === 'ended');
         if (drawn) {
           loadActiveEventDetail(drawn.id);
@@ -116,7 +216,7 @@ export default function Events() {
 
   async function handleCreate(asDraft = true) {
     if (!form.name || !form.minDeposit || !form.prizeAmount || !form.durationMinutes) {
-      toast('Completá todos los campos requeridos', 'error');
+      toast('Completa todos los campos requeridos', 'error');
       return;
     }
     setSaving(true);
@@ -141,7 +241,7 @@ export default function Events() {
   async function handleStart(eventId) {
     try {
       const updated = await startEvent(eventId);
-      toast('🎰 ¡Evento lanzado! Popup enviado a todos los clientes');
+      toast('Evento lanzado! Popup enviado a todos los clientes');
       setActiveEvent(updated);
       setActiveTab('active');
       loadActiveEventDetail(updated.id);
@@ -153,7 +253,7 @@ export default function Events() {
 
   async function handleEnd() {
     if (!activeEvent) return;
-    if (!confirm('¿Seguro que querés terminar el evento?')) return;
+    if (!confirm('Seguro que queres terminar el evento?')) return;
     try {
       await endEvent(activeEvent.id);
       toast('Evento terminado');
@@ -165,10 +265,10 @@ export default function Events() {
 
   async function handleDraw() {
     if (!activeEvent) return;
-    if (!confirm('¿Sortear ganador? Esta acción es irreversible.')) return;
+    if (!confirm('Sortear ganador? Esta accion es irreversible.')) return;
     try {
       const result = await drawEventWinner(activeEvent.id);
-      toast(`🎉 ¡Ganador: ${result.winner.clientName}!`);
+      toast(`Ganador: ${result.winner.clientName}!`);
       setActiveEvent(result.event);
       loadActiveEventDetail(result.event.id);
       loadData();
@@ -181,7 +281,7 @@ export default function Events() {
     if (!activeEvent) return;
     try {
       await claimEventPrize(activeEvent.id);
-      toast('💰 Fichas acreditadas al ganador');
+      toast('Fichas acreditadas al ganador');
       loadData();
     } catch (err) {
       toast(err.message, 'error');
@@ -189,7 +289,7 @@ export default function Events() {
   }
 
   async function handleDelete(id) {
-    if (!confirm('¿Borrar este evento?')) return;
+    if (!confirm('Borrar este evento?')) return;
     try {
       await deleteEvent(id);
       toast('Evento eliminado');
@@ -203,27 +303,27 @@ export default function Events() {
   const draftEvents = events.filter(e => e.status === 'draft');
 
   const tabs = [
-    { id: 'create', label: '➕ Crear' },
-    { id: 'active', label: '🎰 Evento Activo', disabled: !activeEvent && !activeEventDetail },
-    { id: 'history', label: '📋 Historial' },
+    { id: 'create', label: '+ Crear' },
+    { id: 'active', label: 'Evento Activo', disabled: !activeEvent && !activeEventDetail },
+    { id: 'history', label: 'Historial' },
   ];
 
   return (
-    <div style={{ padding: '0' }}>
-      {/* Tabs */}
+    <div>
+      {/* Sub-tabs */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: 20 }}>
         {tabs.map(t => (
           <button
             key={t.id}
             onClick={() => !t.disabled && setActiveTab(t.id)}
             style={{
-              padding: '12px 20px',
-              background: activeTab === t.id ? 'rgba(212,168,67,0.1)' : 'transparent',
+              padding: '10px 18px',
+              background: activeTab === t.id ? 'rgba(212,168,67,0.08)' : 'transparent',
               border: 'none',
               borderBottom: activeTab === t.id ? '2px solid #D4A843' : '2px solid transparent',
               color: t.disabled ? '#555' : activeTab === t.id ? '#D4A843' : '#999',
               cursor: t.disabled ? 'default' : 'pointer',
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: activeTab === t.id ? 600 : 400,
             }}
           >
@@ -235,25 +335,24 @@ export default function Events() {
       {/* CREATE TAB */}
       {activeTab === 'create' && (
         <div>
-          {/* Draft Events */}
           {draftEvents.length > 0 && (
             <div style={{ marginBottom: 24 }}>
-              <h3 style={{ color: '#D4A843', marginBottom: 12, fontSize: 16 }}>📝 Borradores</h3>
+              <h3 style={{ color: '#D4A843', marginBottom: 12, fontSize: 16 }}>Borradores</h3>
               <div style={{ display: 'grid', gap: 10 }}>
                 {draftEvents.map(ev => (
                   <div key={ev.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                       <div style={{ fontWeight: 600, color: '#e0e0e0' }}>{ev.name}</div>
                       <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
-                        Depósito mín: ${Number(ev.minDeposit).toLocaleString()} | Premio: ${Number(ev.prizeAmount).toLocaleString()} | {ev.durationMinutes} min
+                        Deposito min: ${Number(ev.minDeposit).toLocaleString()} | Premio: ${Number(ev.prizeAmount).toLocaleString()} | {ev.durationMinutes} min
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button onClick={() => handleStart(ev.id)} style={{ background: 'linear-gradient(135deg,#D4A843,#b8912e)', color: '#000', border: 'none', padding: '6px 14px', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: 12 }}>
-                        🚀 Lanzar
+                        Lanzar
                       </button>
                       <button onClick={() => handleDelete(ev.id)} style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', padding: '6px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 12 }}>
-                        🗑️
+                        Borrar
                       </button>
                     </div>
                   </div>
@@ -262,7 +361,6 @@ export default function Events() {
             </div>
           )}
 
-          {/* Create Form */}
           <h3 style={{ color: '#D4A843', marginBottom: 16, fontSize: 16 }}>Crear Nuevo Evento</h3>
           <div style={{ display: 'grid', gap: 14, maxWidth: 500 }}>
             <div>
@@ -270,8 +368,8 @@ export default function Events() {
               <input style={inputStyle} placeholder="ej: Promo Viernes Dorado" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
             </div>
             <div>
-              <label style={labelStyle}>Descripción (para el popup)</label>
-              <textarea style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} placeholder="ej: Cargá $5.000 y participá por $100.000 en fichas!" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
+              <label style={labelStyle}>Descripcion (para el popup)</label>
+              <textarea style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} placeholder="ej: Carga $5.000 y participa por $100.000 en fichas!" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
             </div>
             <div>
               <label style={labelStyle}>URL del flyer/imagen</label>
@@ -279,7 +377,7 @@ export default function Events() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
               <div>
-                <label style={labelStyle}>Depósito mínimo ($) *</label>
+                <label style={labelStyle}>Deposito minimo ($) *</label>
                 <input style={inputStyle} type="number" value={form.minDeposit} onChange={e => setForm(f => ({ ...f, minDeposit: Number(e.target.value) }))} />
               </div>
               <div>
@@ -289,27 +387,26 @@ export default function Events() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
               <div>
-                <label style={labelStyle}>Descripción del premio</label>
+                <label style={labelStyle}>Descripcion del premio</label>
                 <input style={inputStyle} placeholder={`$${Number(form.prizeAmount).toLocaleString()} en fichas`} value={form.prizeDescription} onChange={e => setForm(f => ({ ...f, prizeDescription: e.target.value }))} />
               </div>
               <div>
-                <label style={labelStyle}>Duración (minutos) *</label>
+                <label style={labelStyle}>Duracion (minutos) *</label>
                 <input style={inputStyle} type="number" value={form.durationMinutes} onChange={e => setForm(f => ({ ...f, durationMinutes: Number(e.target.value) }))} />
               </div>
             </div>
 
-            {/* Preview */}
             {form.name && (
               <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(212,168,67,0.2)', borderRadius: 12, padding: 16, marginTop: 8 }}>
                 <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>Vista previa del popup:</div>
                 <div style={{ textAlign: 'center' }}>
                   {form.imageUrl && <img src={form.imageUrl} alt="" style={{ maxWidth: '100%', maxHeight: 120, borderRadius: 8, marginBottom: 10 }} onError={e => e.target.style.display = 'none'} />}
-                  <div style={{ fontSize: 16, fontWeight: 700, color: '#D4A843', marginBottom: 6 }}>🎰 ¡NUEVO EVENTO!</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#D4A843', marginBottom: 6 }}>NUEVO EVENTO!</div>
                   <div style={{ fontSize: 13, color: '#ccc', lineHeight: 1.5 }}>
-                    {form.description || `Cargá $${Number(form.minDeposit).toLocaleString()} y participá por ${form.prizeDescription || '$' + Number(form.prizeAmount).toLocaleString() + ' en fichas'}!`}
+                    {form.description || `Carga $${Number(form.minDeposit).toLocaleString()} y participa por ${form.prizeDescription || '$' + Number(form.prizeAmount).toLocaleString() + ' en fichas'}!`}
                   </div>
                   <div style={{ marginTop: 10, background: 'linear-gradient(135deg,#D4A843,#b8912e)', color: '#000', display: 'inline-block', padding: '6px 20px', borderRadius: 16, fontWeight: 700, fontSize: 13 }}>
-                    ¡PARTICIPAR!
+                    PARTICIPAR!
                   </div>
                 </div>
               </div>
@@ -317,10 +414,10 @@ export default function Events() {
 
             <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
               <button onClick={() => handleCreate(true)} disabled={saving} style={{ ...btnStyle, background: 'rgba(255,255,255,0.08)', color: '#e0e0e0', border: '1px solid rgba(255,255,255,0.1)' }}>
-                {saving ? '...' : '💾 Guardar Borrador'}
+                {saving ? '...' : 'Guardar Borrador'}
               </button>
               <button onClick={() => handleCreate(false)} disabled={saving} style={{ ...btnStyle, background: 'linear-gradient(135deg,#D4A843,#b8912e)', color: '#000', fontWeight: 700 }}>
-                {saving ? '...' : '🚀 Crear y Lanzar'}
+                {saving ? '...' : 'Crear y Lanzar'}
               </button>
             </div>
           </div>
@@ -330,7 +427,6 @@ export default function Events() {
       {/* ACTIVE EVENT TAB */}
       {activeTab === 'active' && activeEventDetail && (
         <div>
-          {/* Event Header Card */}
           <div style={{ background: 'linear-gradient(135deg, rgba(212,168,67,0.1), rgba(30,25,15,0.5))', border: '1px solid rgba(212,168,67,0.3)', borderRadius: 14, padding: 20, marginBottom: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
               <div>
@@ -339,7 +435,7 @@ export default function Events() {
                   <StatusBadge status={activeEventDetail.status} />
                 </div>
                 <div style={{ color: '#999', fontSize: 13 }}>
-                  {activeEventDetail.description || `Depósito mín: $${Number(activeEventDetail.minDeposit).toLocaleString()}`}
+                  {activeEventDetail.description || `Deposito min: $${Number(activeEventDetail.minDeposit).toLocaleString()}`}
                 </div>
               </div>
               {activeEventDetail.status === 'active' && (
@@ -350,57 +446,52 @@ export default function Events() {
               )}
             </div>
 
-            {/* Stats */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 14 }}>
               <StatCard label="Premio" value={`$${Number(activeEventDetail.prizeAmount).toLocaleString()}`} color="#D4A843" />
-              <StatCard label="Dep. Mínimo" value={`$${Number(activeEventDetail.minDeposit).toLocaleString()}`} color="#10b981" />
+              <StatCard label="Dep. Minimo" value={`$${Number(activeEventDetail.minDeposit).toLocaleString()}`} color="#10b981" />
               <StatCard label="Inscriptos" value={activeEventDetail.entries?.length || 0} color="#3b82f6" />
               <StatCard label="Calificados" value={activeEventDetail.entries?.filter(e => e.qualified).length || 0} color="#8b5cf6" />
             </div>
 
-            {/* Actions */}
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               {activeEventDetail.status === 'active' && (
                 <button onClick={handleEnd} style={{ ...btnStyle, background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
-                  ⏹ Terminar Evento
+                  Terminar Evento
                 </button>
               )}
               {activeEventDetail.status === 'ended' && (
                 <button onClick={handleDraw} style={{ ...btnStyle, background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)', color: '#fff', fontWeight: 700 }}>
-                  🎲 Sortear Ganador
+                  Sortear Ganador
                 </button>
               )}
               {activeEventDetail.status === 'drawn' && !activeEventDetail.winnerClaimed && (
                 <button onClick={handleClaim} style={{ ...btnStyle, background: 'linear-gradient(135deg,#D4A843,#b8912e)', color: '#000', fontWeight: 700 }}>
-                  💰 Acreditar Fichas al Ganador
+                  Acreditar Fichas al Ganador
                 </button>
               )}
             </div>
 
-            {/* Winner display */}
             {activeEventDetail.status === 'drawn' && activeEventDetail.winnerId && (
               <div style={{ marginTop: 14, background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 10, padding: 14, textAlign: 'center' }}>
-                <div style={{ fontSize: 22, marginBottom: 4 }}>🎉</div>
+                <div style={{ fontSize: 22, marginBottom: 4 }}>{'🎉'}</div>
                 <div style={{ color: '#D4A843', fontWeight: 700, fontSize: 16 }}>
                   Ganador: {activeEventDetail.entries?.find(e => e.id === activeEventDetail.winnerId)?.clientName || 'Cliente #' + activeEventDetail.winnerClientId}
                 </div>
                 <div style={{ color: '#888', fontSize: 12, marginTop: 4 }}>
-                  {activeEventDetail.winnerClaimed ? '✅ Premio reclamado' : '⏳ Esperando que reclame...'}
+                  {activeEventDetail.winnerClaimed ? 'Premio reclamado' : 'Esperando que reclame...'}
                 </div>
               </div>
             )}
             {activeEventDetail.status === 'claimed' && (
               <div style={{ marginTop: 14, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 10, padding: 14, textAlign: 'center' }}>
-                <div style={{ fontSize: 22, marginBottom: 4 }}>✅</div>
                 <div style={{ color: '#10b981', fontWeight: 700, fontSize: 16 }}>Premio reclamado exitosamente</div>
                 <div style={{ color: '#888', fontSize: 12, marginTop: 4 }}>
-                  {activeEventDetail.entries?.find(e => e.id === activeEventDetail.winnerId)?.clientName} recibió ${Number(activeEventDetail.prizeAmount).toLocaleString()} fichas
+                  {activeEventDetail.entries?.find(e => e.id === activeEventDetail.winnerId)?.clientName} recibio ${Number(activeEventDetail.prizeAmount).toLocaleString()} fichas
                 </div>
               </div>
             )}
           </div>
 
-          {/* Participants Table */}
           <h3 style={{ color: '#e0e0e0', marginBottom: 12, fontSize: 16 }}>Participantes ({activeEventDetail.entries?.length || 0})</h3>
           {activeEventDetail.entries && activeEventDetail.entries.length > 0 ? (
             <div style={{ overflowX: 'auto' }}>
@@ -410,9 +501,9 @@ export default function Events() {
                     <th style={thStyle}>#</th>
                     <th style={thStyle}>Cliente</th>
                     <th style={thStyle}>Estado</th>
-                    <th style={thStyle}>Depósito</th>
-                    <th style={thStyle}>Inscripción</th>
-                    <th style={thStyle}>Clasificación</th>
+                    <th style={thStyle}>Deposito</th>
+                    <th style={thStyle}>Inscripcion</th>
+                    <th style={thStyle}>Clasificacion</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -425,7 +516,7 @@ export default function Events() {
                       <td style={tdStyle}>{i + 1}</td>
                       <td style={tdStyle}>
                         <span style={{ fontWeight: entry.id === activeEventDetail.winnerId ? 700 : 400 }}>
-                          {entry.id === activeEventDetail.winnerId && '🏆 '}
+                          {entry.id === activeEventDetail.winnerId && 'GANADOR '}
                           {entry.clientName || `Cliente #${entry.clientId}`}
                         </span>
                       </td>
@@ -438,7 +529,7 @@ export default function Events() {
                           background: entry.qualified ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)',
                           color: entry.qualified ? '#10b981' : '#f59e0b',
                         }}>
-                          {entry.qualified ? '✓ Calificado' : '⏳ Inscripto'}
+                          {entry.qualified ? 'Calificado' : 'Inscripto'}
                         </span>
                       </td>
                       <td style={tdStyle}>
@@ -457,7 +548,7 @@ export default function Events() {
             </div>
           ) : (
             <div style={{ textAlign: 'center', color: '#555', padding: 30 }}>
-              Todavía no hay participantes
+              Todavia no hay participantes
             </div>
           )}
         </div>
@@ -465,8 +556,8 @@ export default function Events() {
 
       {activeTab === 'active' && !activeEventDetail && (
         <div style={{ textAlign: 'center', color: '#555', padding: 60 }}>
-          <div style={{ fontSize: 40, marginBottom: 10 }}>🎰</div>
-          <div>No hay evento activo. Creá uno desde la pestaña "Crear".</div>
+          <div style={{ fontSize: 40, marginBottom: 10 }}>{'🎰'}</div>
+          <div>No hay evento activo. Crea uno desde la pestana "Crear".</div>
         </div>
       )}
 
@@ -492,14 +583,14 @@ export default function Events() {
                     </span>
                   </div>
                   <div style={{ display: 'flex', gap: 20, fontSize: 12, color: '#888' }}>
-                    <span>💰 Dep. mín: ${Number(ev.minDeposit).toLocaleString()}</span>
-                    <span>🏆 Premio: ${Number(ev.prizeAmount).toLocaleString()}</span>
-                    <span>👥 Participantes: {ev.totalEntries || 0}</span>
-                    <span>✓ Calificados: {ev.qualifiedEntries || 0}</span>
+                    <span>Dep. min: ${Number(ev.minDeposit).toLocaleString()}</span>
+                    <span>Premio: ${Number(ev.prizeAmount).toLocaleString()}</span>
+                    <span>Participantes: {ev.totalEntries || 0}</span>
+                    <span>Calificados: {ev.qualifiedEntries || 0}</span>
                   </div>
                   {ev.winnerClientId && (
                     <div style={{ marginTop: 8, fontSize: 12, color: '#D4A843' }}>
-                      🏆 Ganador: Cliente #{ev.winnerClientId} {ev.winnerClaimed ? '(Premio reclamado)' : '(Sin reclamar)'}
+                      Ganador: Cliente #{ev.winnerClientId} {ev.winnerClaimed ? '(Premio reclamado)' : '(Sin reclamar)'}
                     </div>
                   )}
                   <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
@@ -508,7 +599,7 @@ export default function Events() {
                     </button>
                     {(ev.status === 'ended' || ev.status === 'drawn' || ev.status === 'claimed') && (
                       <button onClick={() => handleDelete(ev.id)} style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', padding: '4px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 11 }}>
-                        🗑️ Borrar
+                        Borrar
                       </button>
                     )}
                   </div>
@@ -522,41 +613,494 @@ export default function Events() {
   );
 }
 
-function StatusBadge({ status }) {
-  const cfg = statusLabels[status] || statusLabels.draft;
-  return (
-    <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: cfg.bg, color: cfg.color }}>
-      {cfg.text}
-    </span>
-  );
-}
+// ============================================
+// QUIZ TAB
+// ============================================
+function QuizTab() {
+  const { toast } = useToast();
+  const [subTab, setSubTab] = useState('create');
+  const [quizzes, setQuizzes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeQuiz, setActiveQuiz] = useState(null);
+  const [activeQuizDetail, setActiveQuizDetail] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [countdown, setCountdown] = useState('');
+  const timerRef = useRef(null);
 
-function StatCard({ label, value, color }) {
+  const [form, setForm] = useState({
+    question: '',
+    options: ['', '', '', ''],
+    correctIndex: 0,
+    prizeAmount: 2000,
+    timeLimit: 10,
+  });
+
+  useEffect(() => {
+    loadQuizzes();
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
+
+  // Auto-refresh active quiz
+  useEffect(() => {
+    if (!activeQuiz || activeQuiz.status !== 'active') return;
+    const interval = setInterval(() => {
+      loadQuizDetail(activeQuiz.id);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [activeQuiz?.id, activeQuiz?.status]);
+
+  // Countdown timer for active quiz
+  useEffect(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (!activeQuiz || !activeQuiz.startedAt || activeQuiz.status !== 'active') return;
+    const endTime = new Date(activeQuiz.startedAt).getTime() + (activeQuiz.timeLimit * 1000);
+    const tick = () => {
+      const diff = endTime - Date.now();
+      if (diff <= 0) {
+        setCountdown('00');
+        clearInterval(timerRef.current);
+        loadQuizzes();
+        return;
+      }
+      setCountdown(String(Math.ceil(diff / 1000)));
+    };
+    tick();
+    timerRef.current = setInterval(tick, 200);
+    return () => clearInterval(timerRef.current);
+  }, [activeQuiz?.startedAt, activeQuiz?.status]);
+
+  async function loadQuizzes() {
+    try {
+      const data = await getQuizzes();
+      setQuizzes(Array.isArray(data) ? data : []);
+      const active = (Array.isArray(data) ? data : []).find(q => q.status === 'active');
+      if (active) {
+        setActiveQuiz(active);
+        setSubTab('active');
+        loadQuizDetail(active.id);
+      }
+    } catch (err) {
+      console.error('Error loading quizzes', err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadQuizDetail(id) {
+    try {
+      const detail = await getQuizById(id);
+      setActiveQuizDetail(detail);
+      if (detail.status !== activeQuiz?.status) {
+        setActiveQuiz(prev => prev ? { ...prev, ...detail } : detail);
+      }
+    } catch (err) {
+      console.error('Error loading quiz detail', err);
+    }
+  }
+
+  async function handleCreateQuiz(asDraft = true) {
+    if (!form.question || form.options.some(o => !o.trim())) {
+      toast('Completa la pregunta y las 4 opciones', 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      const quiz = await createQuiz({
+        question: form.question,
+        options: form.options,
+        correctIndex: form.correctIndex,
+        prizeAmount: form.prizeAmount,
+        timeLimit: form.timeLimit,
+      });
+      toast('Quiz creado');
+      setQuizzes(prev => [quiz, ...prev]);
+      if (!asDraft) {
+        await handleStartQuiz(quiz.id);
+      }
+      setForm({ question: '', options: ['', '', '', ''], correctIndex: 0, prizeAmount: 2000, timeLimit: 10 });
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleStartQuiz(quizId) {
+    try {
+      const updated = await startQuiz(quizId);
+      toast('Quiz lanzado! Popup enviado a todos');
+      setActiveQuiz(updated);
+      setSubTab('active');
+      loadQuizDetail(updated.id);
+      loadQuizzes();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  async function handleEndQuiz() {
+    if (!activeQuiz) return;
+    try {
+      await endQuizApi(activeQuiz.id);
+      toast('Quiz terminado');
+      loadQuizzes();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  async function handleDeleteQuiz(id) {
+    if (!confirm('Borrar este quiz?')) return;
+    try {
+      await deleteQuiz(id);
+      toast('Quiz eliminado');
+      loadQuizzes();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  const draftQuizzes = quizzes.filter(q => q.status === 'draft');
+  const historyQuizzes = quizzes.filter(q => q.status === 'ended');
+
+  const subTabs = [
+    { id: 'create', label: '+ Crear Quiz' },
+    { id: 'active', label: 'Quiz Activo', disabled: !activeQuiz && !activeQuizDetail },
+    { id: 'history', label: 'Historial' },
+  ];
+
+  const optionLetters = ['A', 'B', 'C', 'D'];
+
   return (
-    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, padding: '10px 8px', textAlign: 'center' }}>
-      <div style={{ fontSize: 18, fontWeight: 700, color }}>{value}</div>
-      <div style={{ fontSize: 10, color: '#888', marginTop: 2 }}>{label}</div>
+    <div>
+      {/* Sub-tabs */}
+      <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: 20 }}>
+        {subTabs.map(t => (
+          <button
+            key={t.id}
+            onClick={() => !t.disabled && setSubTab(t.id)}
+            style={{
+              padding: '10px 18px',
+              background: subTab === t.id ? 'rgba(212,168,67,0.08)' : 'transparent',
+              border: 'none',
+              borderBottom: subTab === t.id ? '2px solid #D4A843' : '2px solid transparent',
+              color: t.disabled ? '#555' : subTab === t.id ? '#D4A843' : '#999',
+              cursor: t.disabled ? 'default' : 'pointer',
+              fontSize: 13,
+              fontWeight: subTab === t.id ? 600 : 400,
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* CREATE QUIZ */}
+      {subTab === 'create' && (
+        <div>
+          {draftQuizzes.length > 0 && (
+            <div style={{ marginBottom: 24 }}>
+              <h3 style={{ color: '#D4A843', marginBottom: 12, fontSize: 16 }}>Borradores</h3>
+              <div style={{ display: 'grid', gap: 10 }}>
+                {draftQuizzes.map(q => (
+                  <div key={q.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: 600, color: '#e0e0e0' }}>{q.question}</div>
+                      <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
+                        Premio: ${Number(q.prizeAmount).toLocaleString()} | Tiempo: {q.timeLimit}s | Correcta: {optionLetters[q.correctIndex]}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => handleStartQuiz(q.id)} style={{ background: 'linear-gradient(135deg,#D4A843,#b8912e)', color: '#000', border: 'none', padding: '6px 14px', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: 12 }}>
+                        Lanzar
+                      </button>
+                      <button onClick={() => handleDeleteQuiz(q.id)} style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', padding: '6px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 12 }}>
+                        Borrar
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <h3 style={{ color: '#D4A843', marginBottom: 16, fontSize: 16 }}>Crear Nuevo Quiz</h3>
+          <div style={{ display: 'grid', gap: 14, maxWidth: 550 }}>
+            <div>
+              <label style={labelStyle}>Pregunta *</label>
+              <textarea style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} placeholder="ej: Cual es la capital de Argentina?" value={form.question} onChange={e => setForm(f => ({ ...f, question: e.target.value }))} />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Opciones (4 respuestas) *</label>
+              <div style={{ display: 'grid', gap: 8 }}>
+                {form.options.map((opt, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button
+                      onClick={() => setForm(f => ({ ...f, correctIndex: i }))}
+                      style={{
+                        width: 32, height: 32, borderRadius: '50%', border: 'none', cursor: 'pointer',
+                        background: form.correctIndex === i ? '#10b981' : 'rgba(255,255,255,0.08)',
+                        color: form.correctIndex === i ? '#fff' : '#888',
+                        fontWeight: 700, fontSize: 13, flexShrink: 0,
+                      }}
+                      title={form.correctIndex === i ? 'Respuesta correcta' : 'Click para marcar como correcta'}
+                    >
+                      {optionLetters[i]}
+                    </button>
+                    <input
+                      style={{ ...inputStyle, flex: 1 }}
+                      placeholder={`Opcion ${optionLetters[i]}`}
+                      value={opt}
+                      onChange={e => {
+                        const newOpts = [...form.options];
+                        newOpts[i] = e.target.value;
+                        setForm(f => ({ ...f, options: newOpts }));
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: 11, color: '#666', marginTop: 6 }}>
+                Click en la letra para marcar la respuesta correcta (verde = correcta)
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              <div>
+                <label style={labelStyle}>Premio en fichas *</label>
+                <input style={inputStyle} type="number" value={form.prizeAmount} onChange={e => setForm(f => ({ ...f, prizeAmount: Number(e.target.value) }))} />
+              </div>
+              <div>
+                <label style={labelStyle}>Tiempo limite (segundos) *</label>
+                <input style={inputStyle} type="number" min={5} max={60} value={form.timeLimit} onChange={e => setForm(f => ({ ...f, timeLimit: Number(e.target.value) }))} />
+              </div>
+            </div>
+
+            {/* Preview */}
+            {form.question && (
+              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(139,92,246,0.2)', borderRadius: 12, padding: 16, marginTop: 8 }}>
+                <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>Vista previa del popup:</div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#8b5cf6', marginBottom: 4 }}>QUIZ EN VIVO!</div>
+                  <div style={{ fontSize: 13, color: '#e0e0e0', marginBottom: 12, lineHeight: 1.4 }}>{form.question}</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, maxWidth: 300, margin: '0 auto' }}>
+                    {form.options.map((opt, i) => (
+                      <div key={i} style={{
+                        padding: '6px 10px', borderRadius: 8, fontSize: 12,
+                        background: opt ? 'rgba(139,92,246,0.1)' : 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(139,92,246,0.2)',
+                        color: opt ? '#e0e0e0' : '#555',
+                      }}>
+                        {optionLetters[i]}. {opt || '...'}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ marginTop: 8, fontSize: 11, color: '#888' }}>
+                    Premio: ${Number(form.prizeAmount).toLocaleString()} fichas | {form.timeLimit}s para responder
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+              <button onClick={() => handleCreateQuiz(true)} disabled={saving} style={{ ...btnStyle, background: 'rgba(255,255,255,0.08)', color: '#e0e0e0', border: '1px solid rgba(255,255,255,0.1)' }}>
+                {saving ? '...' : 'Guardar Borrador'}
+              </button>
+              <button onClick={() => handleCreateQuiz(false)} disabled={saving} style={{ ...btnStyle, background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)', color: '#fff', fontWeight: 700 }}>
+                {saving ? '...' : 'Crear y Lanzar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ACTIVE QUIZ */}
+      {subTab === 'active' && activeQuizDetail && (
+        <div>
+          <div style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.1), rgba(30,20,40,0.5))', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 14, padding: 20, marginBottom: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                  <h2 style={{ color: '#8b5cf6', margin: 0, fontSize: 20 }}>Quiz en Vivo</h2>
+                  <StatusBadge status={activeQuizDetail.status} />
+                </div>
+                <div style={{ color: '#e0e0e0', fontSize: 15, fontWeight: 600, marginTop: 4 }}>
+                  {activeQuizDetail.question}
+                </div>
+              </div>
+              {activeQuizDetail.status === 'active' && (
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, color: '#888', marginBottom: 2 }}>Tiempo</div>
+                  <div style={{ fontFamily: 'monospace', fontSize: 36, fontWeight: 700, color: '#8b5cf6' }}>{countdown}s</div>
+                </div>
+              )}
+            </div>
+
+            {/* Options display */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+              {activeQuizDetail.options?.map((opt, i) => (
+                <div key={i} style={{
+                  padding: '10px 14px', borderRadius: 10, fontSize: 13,
+                  background: activeQuizDetail.status === 'ended' && i === activeQuizDetail.correctIndex
+                    ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.04)',
+                  border: activeQuizDetail.status === 'ended' && i === activeQuizDetail.correctIndex
+                    ? '2px solid #10b981' : '1px solid rgba(255,255,255,0.08)',
+                  color: '#e0e0e0',
+                }}>
+                  <span style={{ fontWeight: 700, marginRight: 8 }}>{optionLetters[i]}.</span>
+                  {opt}
+                  {activeQuizDetail.status === 'ended' && i === activeQuizDetail.correctIndex && (
+                    <span style={{ marginLeft: 8, color: '#10b981' }}> CORRECTA</span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Stats */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 14 }}>
+              <StatCard label="Respuestas" value={activeQuizDetail.totalAnswers || 0} color="#8b5cf6" />
+              <StatCard label="Correctas" value={activeQuizDetail.correctAnswers || 0} color="#10b981" />
+              <StatCard label="Incorrectas" value={(activeQuizDetail.totalAnswers || 0) - (activeQuizDetail.correctAnswers || 0)} color="#ef4444" />
+              <StatCard label="Premio c/u" value={`$${Number(activeQuizDetail.prizeAmount).toLocaleString()}`} color="#D4A843" />
+            </div>
+
+            {activeQuizDetail.status === 'active' && (
+              <button onClick={handleEndQuiz} style={{ ...btnStyle, background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+                Terminar Quiz
+              </button>
+            )}
+
+            {activeQuizDetail.status === 'ended' && activeQuizDetail.correctAnswers > 0 && (
+              <div style={{ marginTop: 10, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 10, padding: 12, textAlign: 'center' }}>
+                <div style={{ color: '#10b981', fontWeight: 700 }}>
+                  {activeQuizDetail.correctAnswers} ganador{activeQuizDetail.correctAnswers > 1 ? 'es' : ''} - ${Number(activeQuizDetail.prizeAmount * activeQuizDetail.correctAnswers).toLocaleString()} fichas repartidas
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Answers table */}
+          {activeQuizDetail.answers && activeQuizDetail.answers.length > 0 && (
+            <div>
+              <h3 style={{ color: '#e0e0e0', marginBottom: 12, fontSize: 16 }}>Respuestas ({activeQuizDetail.answers.length})</h3>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                      <th style={thStyle}>#</th>
+                      <th style={thStyle}>Cliente</th>
+                      <th style={thStyle}>Respuesta</th>
+                      <th style={thStyle}>Resultado</th>
+                      <th style={thStyle}>Tiempo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeQuizDetail.answers.map((ans, i) => (
+                      <tr key={ans.id} style={{
+                        borderBottom: '1px solid rgba(255,255,255,0.04)',
+                        background: ans.correct ? 'rgba(16,185,129,0.05)' : 'transparent',
+                      }}>
+                        <td style={tdStyle}>{i + 1}</td>
+                        <td style={tdStyle}>{ans.clientName || `Cliente #${ans.clientId}`}</td>
+                        <td style={tdStyle}>{optionLetters[ans.selectedIndex]}. {activeQuizDetail.options?.[ans.selectedIndex] || '?'}</td>
+                        <td style={tdStyle}>
+                          <span style={{
+                            padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                            background: ans.correct ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                            color: ans.correct ? '#10b981' : '#ef4444',
+                          }}>
+                            {ans.correct ? 'Correcta' : 'Incorrecta'}
+                          </span>
+                        </td>
+                        <td style={{ ...tdStyle, fontSize: 12, color: '#888' }}>
+                          {ans.timeMs ? `${(ans.timeMs / 1000).toFixed(1)}s` : '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {subTab === 'active' && !activeQuizDetail && (
+        <div style={{ textAlign: 'center', color: '#555', padding: 60 }}>
+          <div style={{ fontSize: 40, marginBottom: 10 }}>{'🧠'}</div>
+          <div>No hay quiz activo. Crea uno desde la pestana "Crear Quiz".</div>
+        </div>
+      )}
+
+      {/* HISTORY */}
+      {subTab === 'history' && (
+        <div>
+          <h3 style={{ color: '#D4A843', marginBottom: 14, fontSize: 16 }}>Historial de Quizzes</h3>
+          {historyQuizzes.length === 0 ? (
+            <div style={{ textAlign: 'center', color: '#555', padding: 40 }}>
+              No hay quizzes en el historial
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gap: 10 }}>
+              {historyQuizzes.map(q => (
+                <div key={q.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontWeight: 600, color: '#e0e0e0' }}>{q.question}</span>
+                    </div>
+                    <span style={{ fontSize: 12, color: '#888' }}>
+                      {q.startedAt ? new Date(q.startedAt).toLocaleDateString('es-AR') : new Date(q.createdAt).toLocaleDateString('es-AR')}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 20, fontSize: 12, color: '#888' }}>
+                    <span>Respuestas: {q.totalAnswers || 0}</span>
+                    <span style={{ color: '#10b981' }}>Correctas: {q.correctAnswers || 0}</span>
+                    <span>Premio c/u: ${Number(q.prizeAmount).toLocaleString()}</span>
+                    <span>Correcta: {optionLetters[q.correctIndex]}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <button onClick={() => { setActiveQuiz(q); loadQuizDetail(q.id); setSubTab('active'); }} style={{ background: 'rgba(255,255,255,0.05)', color: '#999', border: '1px solid rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 11 }}>
+                      Ver detalle
+                    </button>
+                    <button onClick={() => handleDeleteQuiz(q.id)} style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', padding: '4px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 11 }}>
+                      Borrar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-const labelStyle = { display: 'block', fontSize: 12, color: '#999', marginBottom: 4 };
-const inputStyle = {
-  width: '100%',
-  padding: '8px 12px',
-  background: 'rgba(255,255,255,0.05)',
-  border: '1px solid rgba(255,255,255,0.1)',
-  borderRadius: 8,
-  color: '#e0e0e0',
-  fontSize: 14,
-  outline: 'none',
-};
-const btnStyle = {
-  padding: '8px 18px',
-  border: 'none',
-  borderRadius: 8,
-  cursor: 'pointer',
-  fontSize: 13,
-};
-const thStyle = { textAlign: 'left', padding: '8px 10px', fontSize: 11, color: '#888', fontWeight: 600 };
-const tdStyle = { padding: '8px 10px', fontSize: 13, color: '#e0e0e0' };
+// ============================================
+// RULETA TAB (placeholder)
+// ============================================
+function RuletaTab() {
+  return (
+    <div style={{ textAlign: 'center', padding: 60, color: '#555' }}>
+      <div style={{ fontSize: 50, marginBottom: 16 }}>{'🎡'}</div>
+      <h3 style={{ color: '#D4A843', margin: '0 0 8px' }}>Ruleta de Premios</h3>
+      <p style={{ margin: 0 }}>Proximamente - Ruleta visual con premios configurables</p>
+    </div>
+  );
+}
+
+// ============================================
+// RANKING TAB (placeholder)
+// ============================================
+function RankingTab() {
+  return (
+    <div style={{ textAlign: 'center', padding: 60, color: '#555' }}>
+      <div style={{ fontSize: 50, marginBottom: 16 }}>{'🏆'}</div>
+      <h3 style={{ color: '#D4A843', margin: '0 0 8px' }}>Ranking de Jugadores</h3>
+      <p style={{ margin: 0 }}>Proximamente - Tabla de clasificacion por depositos/actividad</p>
+    </div>
+  );
+}

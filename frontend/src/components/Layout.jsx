@@ -27,7 +27,7 @@ const sectionTitles = {
   cuentas: 'Cuentas Bancarias',
   notificaciones: 'Notificaciones',
   'push-auto': 'Push Autom\u00e1ticos',
-  eventos: 'Eventos y Sorteos',
+  eventos: 'Eventos',
   analytics: 'Analytics',
   palta: 'Palta Wallet',
   ajustes: 'Ajustes',
