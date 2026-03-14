@@ -241,51 +241,64 @@ router.post('/scratch-cards/:id/play', (req: Request, res: Response) => {
 
 function generateScratchGrid(prizes: any[], wonPrize: any): string[][] {
   // 3x3 grid of emojis
+  // REGLA: Ganador = EXACTAMENTE 3 del emoji ganador (el único con 3)
+  //        Perdedor = NINGÚN emoji aparece 3 veces (máximo 2 de cada uno)
+  // Esto evita quejas: "saqué 3 del mayor pero me dieron el menor"
+
   const allEmojis = prizes.map(p => p.emoji || '🎁');
-  const grid: string[][] = [];
+  const flat: string[] = [];
 
   if (wonPrize) {
-    // Place 3 winning emojis and fill rest randomly
+    // === GANADOR: exactamente 3 del emoji ganador ===
     const winEmoji = wonPrize.emoji || '🎁';
-    const positions = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+
     // Pick 3 random positions for the winning emoji
+    const positions = [0, 1, 2, 3, 4, 5, 6, 7, 8];
     const winPositions: number[] = [];
     for (let i = 0; i < 3; i++) {
       const idx = Math.floor(Math.random() * positions.length);
       winPositions.push(positions.splice(idx, 1)[0]);
     }
 
-    const flat: string[] = [];
+    // Fill the other 6 positions with other emojis (max 2 each, NEVER 3)
+    const otherEmojis = allEmojis.filter(e => e !== winEmoji);
+    // If no other emojis available, use generic ones
+    const fillers = otherEmojis.length > 0 ? otherEmojis : ['⭐', '🔥', '💫'];
+
     for (let i = 0; i < 9; i++) {
       if (winPositions.includes(i)) {
         flat.push(winEmoji);
       } else {
-        // Random other emoji
-        const others = allEmojis.filter(e => e !== winEmoji);
-        flat.push(others.length > 0 ? others[Math.floor(Math.random() * others.length)] : '❌');
+        // Pick a filler emoji that hasn't been used 2 times yet
+        let emoji: string;
+        let attempts = 0;
+        do {
+          emoji = fillers[Math.floor(Math.random() * fillers.length)];
+          attempts++;
+        } while (flat.filter(e => e === emoji).length >= 2 && attempts < 30);
+        flat.push(emoji);
       }
     }
-    for (let r = 0; r < 3; r++) {
-      grid.push(flat.slice(r * 3, r * 3 + 3));
-    }
   } else {
-    // No prize - all different emojis (no 3 of the same)
-    const flat: string[] = [];
+    // === PERDEDOR: ningún emoji aparece 3 veces (máximo 2 cada uno) ===
+    const fillers = allEmojis.length >= 2 ? allEmojis : [...allEmojis, '⭐', '🔥', '💫'];
+
     for (let i = 0; i < 9; i++) {
-      // Ensure no emoji appears 3 times
       let emoji: string;
       let attempts = 0;
       do {
-        emoji = allEmojis[Math.floor(Math.random() * allEmojis.length)];
+        emoji = fillers[Math.floor(Math.random() * fillers.length)];
         attempts++;
-      } while (flat.filter(e => e === emoji).length >= 2 && attempts < 20);
+      } while (flat.filter(e => e === emoji).length >= 2 && attempts < 30);
       flat.push(emoji);
-    }
-    for (let r = 0; r < 3; r++) {
-      grid.push(flat.slice(r * 3, r * 3 + 3));
     }
   }
 
+  // Convert flat array to 3x3 grid
+  const grid: string[][] = [];
+  for (let r = 0; r < 3; r++) {
+    grid.push(flat.slice(r * 3, r * 3 + 3));
+  }
   return grid;
 }
 
