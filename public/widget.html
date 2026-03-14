@@ -1993,6 +1993,32 @@ html, body {
     return document.getElementById(id);
   }
 
+  // Recalculate iframe position based on all visible banners
+  function pushIframeBelowBanners() {
+    // Use requestAnimationFrame + small delay to ensure banners have rendered
+    requestAnimationFrame(function() {
+      setTimeout(function() {
+        var bgIframe = getBgIframe();
+        if (!bgIframe) return;
+        var totalH = 0;
+        var eb = document.getElementById('event-banner');
+        if (eb && eb.style.display !== 'none') totalH += eb.offsetHeight;
+        var rb = document.getElementById('roulette-banner');
+        if (rb && rb.style.display !== 'none') totalH += rb.offsetHeight;
+        var sb = document.getElementById('scratch-banner');
+        if (sb && sb.style.display !== 'none') totalH += sb.offsetHeight;
+        console.log('[WIDGET] pushIframeBelowBanners totalH:', totalH);
+        if (totalH > 0) {
+          bgIframe.style.top = totalH + 'px';
+          bgIframe.style.height = 'calc(100% - ' + totalH + 'px)';
+        } else {
+          bgIframe.style.top = '0';
+          bgIframe.style.height = '100%';
+        }
+      }, 100);
+    });
+  }
+
   // Navigate the bg-iframe (local or parent's depending on embed mode)
   function navigateBgIframe(url) {
     var bgIframe = getBgIframe();
@@ -2380,17 +2406,7 @@ html, body {
       if (banner) banner.style.display = 'none';
       var scratchOverlay = document.getElementById('scratch-overlay');
       if (scratchOverlay) scratchOverlay.remove();
-      // Reset iframe position (recalculate based on remaining banners)
-      var bgIframe = getBgIframe();
-      if (bgIframe) {
-        var totalH = 0;
-        var eb = document.getElementById('event-banner');
-        if (eb && eb.style.display !== 'none') totalH += eb.offsetHeight;
-        var rb = document.getElementById('roulette-banner');
-        if (rb && rb.style.display !== 'none') totalH += rb.offsetHeight;
-        bgIframe.style.top = totalH ? (totalH + 'px') : '0';
-        bgIframe.style.height = totalH ? ('calc(100% - ' + totalH + 'px)') : '100%';
-      }
+      pushIframeBelowBanners();
     });
 
     state.socket.on('scratch:won', (data) => {
@@ -2423,17 +2439,7 @@ html, body {
       if (banner) banner.style.display = 'none';
       var overlay = document.getElementById('roulette-overlay');
       if (overlay) overlay.remove();
-      // Reset iframe position (recalculate based on remaining banners)
-      var bgIframe = getBgIframe();
-      if (bgIframe) {
-        var totalH = 0;
-        var eb = document.getElementById('event-banner');
-        if (eb && eb.style.display !== 'none') totalH += eb.offsetHeight;
-        var sb = document.getElementById('scratch-banner');
-        if (sb && sb.style.display !== 'none') totalH += sb.offsetHeight;
-        bgIframe.style.top = totalH ? (totalH + 'px') : '0';
-        bgIframe.style.height = totalH ? ('calc(100% - ' + totalH + 'px)') : '100%';
-      }
+      pushIframeBelowBanners();
     });
 
     state.socket.on('roulette:won', (data) => {
@@ -3449,17 +3455,7 @@ html, body {
     banner.style.display = 'block';
 
     // Push iframe down below banner (like sorteo)
-    setTimeout(function() {
-      var bgIframe = getBgIframe();
-      if (bgIframe) {
-        var totalH = 0;
-        var eb = document.getElementById('event-banner');
-        if (eb && eb.style.display !== 'none') totalH += eb.offsetHeight;
-        totalH += banner.offsetHeight;
-        bgIframe.style.top = totalH + 'px';
-        bgIframe.style.height = 'calc(100% - ' + totalH + 'px)';
-      }
-    }, 50);
+    pushIframeBelowBanners();
 
     btn.onclick = function() {
       // Open widget and show roulette popup inside
@@ -3505,19 +3501,7 @@ html, body {
     banner.style.display = 'block';
 
     // Push iframe down below all banners (like sorteo)
-    setTimeout(function() {
-      var bgIframe = getBgIframe();
-      if (bgIframe) {
-        var totalH = 0;
-        var eb = document.getElementById('event-banner');
-        if (eb && eb.style.display !== 'none') totalH += eb.offsetHeight;
-        var rb = document.getElementById('roulette-banner');
-        if (rb && rb.style.display !== 'none') totalH += rb.offsetHeight;
-        totalH += banner.offsetHeight;
-        bgIframe.style.top = totalH + 'px';
-        bgIframe.style.height = 'calc(100% - ' + totalH + 'px)';
-      }
-    }, 50);
+    pushIframeBelowBanners();
 
     btn.onclick = function() {
       if (!state.open) toggleWidget(true);
@@ -4447,15 +4431,8 @@ html, body {
         bannerBtn.disabled = false;
       }
       banner.style.display = 'block';
-      // Push iframe down below banner
-      setTimeout(function() {
-        var bgIframe = getBgIframe();
-        if (bgIframe && banner) {
-          var h = banner.offsetHeight;
-          bgIframe.style.top = h + 'px';
-          bgIframe.style.height = 'calc(100% - ' + h + 'px)';
-        }
-      }, 50);
+      // Push iframe down below all banners
+      pushIframeBelowBanners();
     }
 
     // Mini banner (inside chat)
@@ -4470,12 +4447,8 @@ html, body {
   function hideEventBanner() {
     var banner = document.getElementById('event-banner');
     if (banner) banner.style.display = 'none';
-    // Reset iframe to full screen
-    var bgIframe = getBgIframe();
-    if (bgIframe) {
-      bgIframe.style.top = '0';
-      bgIframe.style.height = '100%';
-    }
+    // Recalculate iframe position (other banners might still be visible)
+    pushIframeBelowBanners();
     var mini = document.getElementById('event-banner-mini');
     if (mini) mini.classList.remove('show');
   }
