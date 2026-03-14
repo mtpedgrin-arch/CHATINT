@@ -202,10 +202,10 @@ export const getPaltaStats = () => apiFetch('/api/palta/stats');
 export const testPaltaConnection = () => apiFetch('/api/palta/test', { method: 'POST' });
 
 // Push Automation
-export const getPushAutomationConfig = () => apiFetch('/api/push-automation/config');
+export const getPushAutomationConfig = () => apiFetch('/api/push-automation/config').then(r => r.data || r);
 export const savePushAutomationConfig = (data) => apiFetch('/api/push-automation/config/all', { method: 'PUT', body: JSON.stringify(data) });
-export const getPushAutomationStatus = () => apiFetch('/api/push-automation/status');
+export const getPushAutomationStatus = () => apiFetch('/api/push-automation/status').then(r => r.data || r);
 export const getPushSubscribersStats = () => apiFetch('/api/push-automation/push-subscribers-stats');
 export const startPushAutomation = () => apiFetch('/api/push-automation/start', { method: 'POST' });
 export const stopPushAutomation = () => apiFetch('/api/push-automation/stop', { method: 'POST' });
-export const getPushAutomationStats = () => apiFetch('/api/push-automation/stats');
+export const getPushAutomationStats = () => apiFetch('/api/push-automation/stats').then(r => r.data || r);
