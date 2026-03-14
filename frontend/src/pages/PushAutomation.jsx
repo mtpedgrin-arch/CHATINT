@@ -50,7 +50,13 @@ function getDefaultConfig() {
       { daysInactive: 14, title: '😢 Tu lugar VIP te espera', body: 'Te lo guardamos. Ultimas 48hs!', icon: '😢', url: '/widget', onlyOnce: true, enabled: true },
       { daysInactive: 30, title: '🔥 ULTIMA OPORTUNIDAD', body: 'Bono 100% de recarga. No te lo pierdas!', icon: '🔥', url: '/widget', onlyOnce: true, enabled: true },
     ]},
-    scheduled: { enabled: false, campaigns: [] },
+    scheduled: { enabled: false, campaigns: [
+      { id: 'camp_horario_pico', name: 'Horario Pico', enabled: true, days: ['friday', 'saturday'], time: '20:00', title: '🎰 La noche es joven!', body: 'Entra y juga, hay premios esperandote', icon: '🎰', url: '/widget', segment: 'all' },
+      { id: 'camp_primer_deposito', name: 'Primer Deposito del Dia', enabled: true, days: ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'], time: '10:00', title: '💰 Arranca el dia con fichas!', body: 'Carga temprano y recibi 20% extra', icon: '💰', url: '/widget', segment: 'all' },
+      { id: 'camp_sorteo', name: 'Aviso Sorteo', enabled: true, days: ['thursday'], time: '18:00', title: '🏆 Maniana hay SORTEO!', body: 'Carga hoy y participa por premios', icon: '🏆', url: '/widget', segment: 'all' },
+      { id: 'camp_domingo', name: 'Domingo Tranquilo', enabled: true, days: ['sunday'], time: '15:00', title: '🎲 Tarde perfecta para jugar', body: 'Relaja y proba suerte este domingo', icon: '🎲', url: '/widget', segment: 'all' },
+      { id: 'camp_medianoche', name: 'Medianoche Especial', enabled: false, days: ['friday', 'saturday'], time: '23:30', title: '🌙 Bono nocturno activo!', body: 'Solo hasta las 2AM. Aprovecha!', icon: '🌙', url: '/widget', segment: 'all' },
+    ]},
     events: { enabled: false, triggers: {} },
     reconsumo: { enabled: false, rules: [
       { id: 'balance_zero', enabled: true, triggerType: 'balance_zero', title: '💸 Se te acabaron las fichas!', body: 'Carga y segui jugando 🎰', icon: '💸', url: '/widget', onlyOnce: false },
@@ -183,7 +189,7 @@ function PushAutomationInner() {
       const r = rawCfg || {};
       cfg.global = r.global ? { ...defaults.global, ...r.global } : defaults.global;
       cfg.inactivity = (r.inactivity && r.inactivity.rules && r.inactivity.rules.length > 0) ? r.inactivity : defaults.inactivity;
-      cfg.scheduled = r.scheduled ? { ...defaults.scheduled, ...r.scheduled, campaigns: Array.isArray(r.scheduled.campaigns) ? r.scheduled.campaigns : [] } : defaults.scheduled;
+      cfg.scheduled = (r.scheduled && r.scheduled.campaigns && r.scheduled.campaigns.length > 0) ? r.scheduled : defaults.scheduled;
       cfg.events = r.events ? r.events : defaults.events;
       cfg.reconsumo = (r.reconsumo && r.reconsumo.rules && r.reconsumo.rules.length > 0) ? r.reconsumo : defaults.reconsumo;
       cfg.urgencia = (r.urgencia && r.urgencia.rules && r.urgencia.rules.length > 0) ? r.urgencia : defaults.urgencia;
@@ -379,28 +385,88 @@ function PushAutomationInner() {
       {activeTab === 'engagement' && (
         <SectionCard title="Engagement Programado" enabled={!!sched.enabled}
           onToggle={(v) => updateSection('scheduled', { enabled: v })}>
-          {(!sched.campaigns || sched.campaigns.length === 0) ? (
-            <p style={{ color: '#999', fontSize: '0.85rem' }}>No hay campanias configuradas.</p>
-          ) : sched.campaigns.map((camp, i) => (
-            <div key={camp.id || i} style={{ padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                <Toggle checked={!!camp.enabled} onChange={(v) => {
-                  const campaigns = [...sched.campaigns];
-                  campaigns[i] = { ...campaigns[i], enabled: v };
-                  updateSection('scheduled', { campaigns });
-                }} />
-                <span style={{ fontWeight: 600, fontSize: '0.85rem', color: camp.enabled ? '#D4A843' : '#666' }}>{camp.name || 'Campania'}</span>
+          {(sched.campaigns || []).map((camp, i) => {
+            const allDays = [
+              { key: 'monday', label: 'Lun' }, { key: 'tuesday', label: 'Mar' }, { key: 'wednesday', label: 'Mie' },
+              { key: 'thursday', label: 'Jue' }, { key: 'friday', label: 'Vie' }, { key: 'saturday', label: 'Sab' }, { key: 'sunday', label: 'Dom' },
+            ];
+            const updateCamp = (field, value) => {
+              const c = [...sched.campaigns];
+              c[i] = { ...c[i], [field]: value };
+              updateSection('scheduled', { campaigns: c });
+            };
+            const toggleDay = (dayKey) => {
+              const days = camp.days || [];
+              const newDays = days.includes(dayKey) ? days.filter(d => d !== dayKey) : [...days, dayKey];
+              updateCamp('days', newDays);
+            };
+            const removeCamp = () => {
+              const c = sched.campaigns.filter((_, idx) => idx !== i);
+              updateSection('scheduled', { campaigns: c });
+            };
+            return (
+              <div key={camp.id || i} style={{ padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                  <Toggle checked={!!camp.enabled} onChange={(v) => updateCamp('enabled', v)} />
+                  <input className="form-input" value={camp.name || ''}
+                    onChange={(e) => updateCamp('name', e.target.value)}
+                    placeholder="Nombre campania" style={{ fontSize: '0.85rem', fontWeight: 600, flex: 1, maxWidth: 200 }} />
+                  <button onClick={removeCamp} title="Eliminar"
+                    style={{ background: 'rgba(248,113,113,0.15)', color: '#f87171', border: 'none', borderRadius: 4, padding: '4px 8px', cursor: 'pointer', fontSize: '0.75rem' }}>
+                    Eliminar
+                  </button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 8, paddingLeft: 56 }}>
+                  <input className="form-input" value={camp.title || ''}
+                    onChange={(e) => updateCamp('title', e.target.value)}
+                    placeholder="Titulo push" style={{ fontSize: '0.8rem' }} />
+                  <input className="form-input" value={camp.body || ''}
+                    onChange={(e) => updateCamp('body', e.target.value)}
+                    placeholder="Mensaje push" style={{ fontSize: '0.8rem' }} />
+                </div>
+                <div style={{ display: 'flex', gap: 6, paddingLeft: 56, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  {allDays.map(d => {
+                    const active = (camp.days || []).includes(d.key);
+                    return (
+                      <button key={d.key} onClick={() => toggleDay(d.key)}
+                        style={{
+                          padding: '3px 10px', borderRadius: 4, border: 'none', cursor: 'pointer',
+                          fontSize: '0.72rem', fontWeight: 600,
+                          background: active ? '#D4A843' : 'rgba(255,255,255,0.08)',
+                          color: active ? '#000' : '#888',
+                        }}>
+                        {d.label}
+                      </button>
+                    );
+                  })}
+                  <input className="form-input" type="time" value={camp.time || '20:00'}
+                    onChange={(e) => updateCamp('time', e.target.value)}
+                    style={{ width: 100, fontSize: '0.75rem', marginLeft: 8 }} />
+                </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 8, paddingLeft: 56 }}>
-                <input className="form-input" value={camp.title || ''}
-                  onChange={(e) => { const c = [...sched.campaigns]; c[i] = {...c[i], title: e.target.value}; updateSection('scheduled', {campaigns: c}); }}
-                  placeholder="Titulo" style={{ fontSize: '0.8rem' }} />
-                <input className="form-input" value={camp.body || ''}
-                  onChange={(e) => { const c = [...sched.campaigns]; c[i] = {...c[i], body: e.target.value}; updateSection('scheduled', {campaigns: c}); }}
-                  placeholder="Mensaje" style={{ fontSize: '0.8rem' }} />
-              </div>
-            </div>
-          ))}
+            );
+          })}
+          <button onClick={() => {
+            const newCamp = {
+              id: 'camp_' + Date.now(),
+              name: 'Nueva Campania',
+              enabled: false,
+              days: ['monday', 'wednesday', 'friday'],
+              time: '20:00',
+              title: '🎰 Titulo del push',
+              body: 'Mensaje del push',
+              icon: '🎰',
+              url: '/widget',
+              segment: 'all',
+            };
+            updateSection('scheduled', { campaigns: [...(sched.campaigns || []), newCamp] });
+          }}
+            style={{
+              marginTop: 12, padding: '8px 16px', borderRadius: 6, border: '1px dashed rgba(212,168,67,0.4)',
+              background: 'rgba(212,168,67,0.08)', color: '#D4A843', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, width: '100%',
+            }}>
+            + Crear Campania
+          </button>
         </SectionCard>
       )}
 
