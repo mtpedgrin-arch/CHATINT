@@ -2351,7 +2351,21 @@ html, body {
     // ── RULETA ──
     state.socket.on('roulette:started', (data) => {
       console.log('[WIDGET] Roulette started:', data);
-      showRoulettePopup(data);
+      // If segments not included, fetch from API
+      if (!data.segments || data.segments.length === 0) {
+        fetch(API_BASE + '/api/roulettes/active')
+          .then(function(r) { return r.json(); })
+          .then(function(res) {
+            if (res.roulette) {
+              showRoulettePopup({ id: data.id, name: data.name, segments: res.roulette.segments });
+            } else {
+              showRoulettePopup(data);
+            }
+          })
+          .catch(function() { showRoulettePopup(data); });
+      } else {
+        showRoulettePopup(data);
+      }
     });
 
     state.socket.on('roulette:ended', (data) => {
@@ -3405,8 +3419,17 @@ html, body {
 
     // Create segments as colored sectors using conic-gradient
     var colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#7f8c8d'];
-    var segLabels = data.roulette ? data.roulette.segments : (data.segments || []);
-    var numSegs = segLabels.length || 8;
+    var segLabels = data.segments || (data.roulette ? data.roulette.segments : []);
+    if (segLabels.length === 0) {
+      // Fallback: 8 generic segments
+      segLabels = [
+        {label:'Premio 1',color:'#e74c3c',emoji:'🔥'},{label:'Premio 2',color:'#3498db',emoji:'⭐'},
+        {label:'Premio 3',color:'#2ecc71',emoji:'🍀'},{label:'Premio 4',color:'#f39c12',emoji:'🎁'},
+        {label:'Premio 5',color:'#9b59b6',emoji:'💎'},{label:'Premio 6',color:'#1abc9c',emoji:'🎲'},
+        {label:'Gira Gratis',color:'#e67e22',emoji:'🔄'},{label:'Sin Premio',color:'#7f8c8d',emoji:'😅'},
+      ];
+    }
+    var numSegs = segLabels.length;
     var gradientParts = [];
     var pct = 0;
     for (var si = 0; si < numSegs; si++) {

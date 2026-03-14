@@ -58,7 +58,11 @@ router.post('/admin/roulettes/:id/start', (req: Request, res: Response) => {
   if (active) return res.status(400).json({ error: 'Ya hay una ruleta activa. Terminala primero.' });
   const updated = dataService.updateRoulette(r.id, { status: 'active', startedAt: new Date().toISOString() });
   const io = req.app.get('io');
-  if (io) io.emit('roulette:started', { id: updated!.id, name: updated!.name });
+  if (io) io.emit('roulette:started', {
+    id: updated!.id,
+    name: updated!.name,
+    segments: updated!.segments.map(s => ({ label: s.label, color: s.color, emoji: s.emoji })),
+  });
   res.json(updated);
 });
 
