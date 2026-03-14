@@ -177,18 +177,19 @@ function PushAutomationInner() {
       let sts = null;
       try { sts = await getPushAutomationStats(); } catch (e) { console.warn('[PushAuto] Stats error (ok):', e.message); }
 
-      // Merge remote config with defaults
+      // Merge remote config with defaults (use defaults if section missing or empty)
       const defaults = getDefaultConfig();
       const cfg = {};
-      cfg.global = (rawCfg && rawCfg.global) ? { ...defaults.global, ...rawCfg.global } : defaults.global;
-      cfg.inactivity = (rawCfg && rawCfg.inactivity && Array.isArray(rawCfg.inactivity.rules) && rawCfg.inactivity.rules.length > 0) ? rawCfg.inactivity : defaults.inactivity;
-      cfg.scheduled = (rawCfg && rawCfg.scheduled) ? { ...defaults.scheduled, ...rawCfg.scheduled, campaigns: Array.isArray(rawCfg.scheduled.campaigns) ? rawCfg.scheduled.campaigns : [] } : defaults.scheduled;
-      cfg.events = (rawCfg && rawCfg.events) ? rawCfg.events : defaults.events;
-      cfg.reconsumo = (rawCfg && rawCfg.reconsumo && Array.isArray(rawCfg.reconsumo.rules)) ? rawCfg.reconsumo : defaults.reconsumo;
-      cfg.urgencia = (rawCfg && rawCfg.urgencia && Array.isArray(rawCfg.urgencia.rules)) ? rawCfg.urgencia : defaults.urgencia;
-      cfg.onboarding = (rawCfg && rawCfg.onboarding && Array.isArray(rawCfg.onboarding.steps)) ? rawCfg.onboarding : defaults.onboarding;
-      cfg.templates = (rawCfg && Array.isArray(rawCfg.templates)) ? rawCfg.templates : [];
-      cfg.segments = (rawCfg && rawCfg.segments) ? rawCfg.segments : {};
+      const r = rawCfg || {};
+      cfg.global = r.global ? { ...defaults.global, ...r.global } : defaults.global;
+      cfg.inactivity = (r.inactivity && r.inactivity.rules && r.inactivity.rules.length > 0) ? r.inactivity : defaults.inactivity;
+      cfg.scheduled = r.scheduled ? { ...defaults.scheduled, ...r.scheduled, campaigns: Array.isArray(r.scheduled.campaigns) ? r.scheduled.campaigns : [] } : defaults.scheduled;
+      cfg.events = r.events ? r.events : defaults.events;
+      cfg.reconsumo = (r.reconsumo && r.reconsumo.rules && r.reconsumo.rules.length > 0) ? r.reconsumo : defaults.reconsumo;
+      cfg.urgencia = (r.urgencia && r.urgencia.rules && r.urgencia.rules.length > 0) ? r.urgencia : defaults.urgencia;
+      cfg.onboarding = (r.onboarding && r.onboarding.steps && r.onboarding.steps.length > 0) ? r.onboarding : defaults.onboarding;
+      cfg.templates = (Array.isArray(r.templates) && r.templates.length > 0) ? r.templates : defaults.templates;
+      cfg.segments = r.segments || {};
 
       console.log('[PushAuto] Final config:', cfg);
       setConfig(cfg);
