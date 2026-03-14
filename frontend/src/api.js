@@ -170,6 +170,14 @@ export const deleteQuiz = (id) => apiFetch(`/api/admin/quizzes/${id}`, { method:
 export const startQuiz = (id) => apiFetch(`/api/admin/quizzes/${id}/start`, { method: 'POST' });
 export const endQuiz = (id) => apiFetch(`/api/admin/quizzes/${id}/end`, { method: 'POST' });
 
+// Scratch Cards (Raspa y Gana)
+export const getScratchCards = () => apiFetch('/api/admin/scratch-cards');
+export const getScratchCardById = (id) => apiFetch(`/api/admin/scratch-cards/${id}`);
+export const createScratchCard = (data) => apiFetch('/api/admin/scratch-cards', { method: 'POST', body: JSON.stringify(data) });
+export const deleteScratchCard = (id) => apiFetch(`/api/admin/scratch-cards/${id}`, { method: 'DELETE' });
+export const startScratchCard = (id) => apiFetch(`/api/admin/scratch-cards/${id}/start`, { method: 'POST' });
+export const endScratchCard = (id) => apiFetch(`/api/admin/scratch-cards/${id}/end`, { method: 'POST' });
+
 // Analytics
 export const getAnalyticsOverview = () => apiFetch('/api/analytics/overview');
 export const getAnalyticsActiveUsers = (from, to, period = 'day') => apiFetch(`/api/analytics/active-users?from=${from}&to=${to}&period=${period}`);

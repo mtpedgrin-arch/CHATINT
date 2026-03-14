@@ -297,6 +297,38 @@ export interface QuizAnswer {
   timeMs: number;
 }
 
+export interface ScratchCard {
+  id: string;
+  name: string;
+  prizes: ScratchPrize[];
+  status: 'draft' | 'active' | 'ended';
+  startedAt: string | null;
+  endedAt: string | null;
+  createdAt: string;
+  createdBy: string;
+  totalPlayed: number;
+  totalWinners: number;
+  totalPrizeGiven: number;
+}
+
+export interface ScratchPrize {
+  label: string;
+  amount: number;
+  probability: number; // 0-100
+  emoji: string;
+}
+
+export interface ScratchPlay {
+  id: string;
+  scratchCardId: string;
+  clientId: number;
+  clientName: string;
+  won: boolean;
+  prizeLabel: string;
+  prizeAmount: number;
+  playedAt: string;
+}
+
 export interface ActivityLog {
   id: string;
   clientId: number;
@@ -375,6 +407,8 @@ export interface Store {
   eventEntries: EventEntry[];
   quizzes: Quiz[];
   quizAnswers: QuizAnswer[];
+  scratchCards: ScratchCard[];
+  scratchPlays: ScratchPlay[];
   activityLogs: ActivityLog[];
   dailyAggregates: DailyAggregate[];
   paltaTransactions: PaltaTransaction[];
@@ -425,6 +459,7 @@ class DataService {
           popupMessages: [], popupTemplates: [],
           events: [], eventEntries: [],
           quizzes: [], quizAnswers: [],
+          scratchCards: [], scratchPlays: [],
           activityLogs: [], dailyAggregates: [],
           paltaTransactions: [],
           paltaConfig: { email: '', password: '', enabled: false, pollIntervalSeconds: 60, autoApprove: true, headless: true, lastPollAt: null, status: 'stopped' as const, errorMessage: '' },
@@ -1243,6 +1278,78 @@ class DataService {
     this.store.quizAnswers.push(answer);
     this.save();
     return answer;
+  }
+
+  // ── SCRATCH CARDS (Raspa y Gana) ──────────────────────────
+  getScratchCards(): ScratchCard[] {
+    return this.store.scratchCards || [];
+  }
+
+  getScratchCardById(id: string): ScratchCard | undefined {
+    return (this.store.scratchCards || []).find(s => s.id === id);
+  }
+
+  getActiveScratchCard(): ScratchCard | undefined {
+    return (this.store.scratchCards || []).find(s => s.status === 'active');
+  }
+
+  createScratchCard(data: Omit<ScratchCard, 'id' | 'createdAt' | 'startedAt' | 'endedAt' | 'totalPlayed' | 'totalWinners' | 'totalPrizeGiven'>): ScratchCard {
+    const { v4: uuid } = require('uuid');
+    const card: ScratchCard = {
+      ...data,
+      id: uuid(),
+      createdAt: new Date().toISOString(),
+      startedAt: null,
+      endedAt: null,
+      totalPlayed: 0,
+      totalWinners: 0,
+      totalPrizeGiven: 0,
+    };
+    if (!this.store.scratchCards) this.store.scratchCards = [];
+    this.store.scratchCards.push(card);
+    this.save();
+    return card;
+  }
+
+  updateScratchCard(id: string, data: Partial<ScratchCard>): ScratchCard | null {
+    if (!this.store.scratchCards) return null;
+    const idx = this.store.scratchCards.findIndex(s => s.id === id);
+    if (idx === -1) return null;
+    this.store.scratchCards[idx] = { ...this.store.scratchCards[idx], ...data };
+    this.save();
+    return this.store.scratchCards[idx];
+  }
+
+  deleteScratchCard(id: string): boolean {
+    if (!this.store.scratchCards) return false;
+    const before = this.store.scratchCards.length;
+    this.store.scratchCards = this.store.scratchCards.filter(s => s.id !== id);
+    if (this.store.scratchPlays) {
+      this.store.scratchPlays = this.store.scratchPlays.filter(p => p.scratchCardId !== id);
+    }
+    this.save();
+    return this.store.scratchCards.length < before;
+  }
+
+  getScratchPlays(scratchCardId: string): ScratchPlay[] {
+    return (this.store.scratchPlays || []).filter(p => p.scratchCardId === scratchCardId);
+  }
+
+  getScratchPlayByClient(scratchCardId: string, clientId: number): ScratchPlay | undefined {
+    return (this.store.scratchPlays || []).find(p => p.scratchCardId === scratchCardId && p.clientId === clientId);
+  }
+
+  createScratchPlay(data: Omit<ScratchPlay, 'id' | 'playedAt'>): ScratchPlay {
+    const { v4: uuid } = require('uuid');
+    const play: ScratchPlay = {
+      ...data,
+      id: uuid(),
+      playedAt: new Date().toISOString(),
+    };
+    if (!this.store.scratchPlays) this.store.scratchPlays = [];
+    this.store.scratchPlays.push(play);
+    this.save();
+    return play;
   }
 
   // ── ACTIVITY LOGS ──────────────────────────

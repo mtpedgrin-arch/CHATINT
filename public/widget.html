@@ -2331,6 +2331,23 @@ html, body {
       addBotMessage('🧠 ¡Acertaste el quiz! ' + Number(data.prizeAmount).toLocaleString() + ' fichas acreditadas en tu cuenta.');
     });
 
+    // ── RASPA Y GANA ──
+    state.socket.on('scratch:started', (data) => {
+      console.log('[WIDGET] Scratch card started:', data);
+      showScratchPopup(data);
+    });
+
+    state.socket.on('scratch:ended', (data) => {
+      console.log('[WIDGET] Scratch card ended');
+      var scratchOverlay = document.getElementById('scratch-overlay');
+      if (scratchOverlay) scratchOverlay.remove();
+    });
+
+    state.socket.on('scratch:won', (data) => {
+      console.log('[WIDGET] Scratch won!', data);
+      addBotMessage('🎫 Ganaste raspando! ' + data.prizeEmoji + ' ' + data.prizeLabel + ': $' + Number(data.prizeAmount).toLocaleString() + ' fichas acreditadas.');
+    });
+
     // ── FICHAS CARGADAS popup ──
     state.socket.on('payment:approved', (data) => {
       console.log('[WIDGET] 🎰 payment:approved received:', JSON.stringify(data));
@@ -3298,6 +3315,176 @@ html, body {
   var popupBtn = document.getElementById('popup-btn');
 
   // ============================================
+  // RASPA Y GANA POPUP
+  // ============================================
+  function showScratchPopup(data) {
+    // data: { id, name }
+    if (!state.clientId) return;
+    if (!state.open) toggleWidget(true);
+
+    var existing = document.getElementById('scratch-overlay');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'scratch-overlay';
+    overlay.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.88);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;';
+
+    var card = document.createElement('div');
+    card.style.cssText = 'background:#1a1a2e;border:2px solid #D4A843;border-radius:16px;padding:20px;width:100%;max-width:300px;text-align:center;';
+
+    var header = document.createElement('div');
+    header.style.cssText = 'font-size:14px;color:#D4A843;font-weight:700;margin-bottom:4px;';
+    header.textContent = 'RASPA Y GANA!';
+    card.appendChild(header);
+
+    var subtitle = document.createElement('div');
+    subtitle.style.cssText = 'font-size:12px;color:#888;margin-bottom:16px;';
+    subtitle.textContent = data.name || 'Raspa las celdas para descubrir tu premio';
+    card.appendChild(subtitle);
+
+    // Grid 3x3 with scratch cells
+    var grid = document.createElement('div');
+    grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-width:210px;margin:0 auto 16px;';
+
+    var scratched = 0;
+    var totalCells = 9;
+    var resultData = null;
+
+    for (var i = 0; i < totalCells; i++) {
+      var cell = document.createElement('div');
+      cell.style.cssText = 'width:62px;height:62px;background:linear-gradient(135deg,#888,#aaa);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:24px;color:#fff;font-weight:700;user-select:none;transition:all 0.3s;position:relative;overflow:hidden;';
+      cell.textContent = '?';
+      cell.dataset.index = String(i);
+      cell.dataset.scratched = 'false';
+
+      cell.onclick = (function(cellEl, cellIndex) {
+        return function() {
+          if (cellEl.dataset.scratched === 'true') return;
+          cellEl.dataset.scratched = 'true';
+          scratched++;
+
+          // On first scratch, call API to get result
+          if (scratched === 1 && !resultData) {
+            fetch(API_BASE + '/api/scratch-cards/' + data.id + '/play', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                clientId: state.clientId,
+                clientName: state.visitorName || '',
+              }),
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+              if (res.error) {
+                // Already played
+                showScratchResult(overlay, false, res.error);
+                return;
+              }
+              resultData = res;
+              // Reveal this cell
+              revealCell(cellEl, cellIndex, res.grid);
+              // After 3 scratches or after 2 seconds, reveal all
+              checkRevealAll(grid, overlay, res);
+            })
+            .catch(function(err) {
+              console.error('[WIDGET] Scratch error:', err);
+              cellEl.textContent = '?';
+              cellEl.dataset.scratched = 'false';
+              scratched--;
+            });
+          } else if (resultData) {
+            revealCell(cellEl, cellIndex, resultData.grid);
+            checkRevealAll(grid, overlay, resultData);
+          }
+        };
+      })(cell, i);
+
+      grid.appendChild(cell);
+    }
+
+    card.appendChild(grid);
+
+    var hint = document.createElement('div');
+    hint.style.cssText = 'font-size:11px;color:#666;';
+    hint.textContent = 'Toca las celdas para raspar';
+    card.appendChild(hint);
+
+    overlay.appendChild(card);
+
+    var panel = document.querySelector('.widget-panel');
+    if (panel) panel.appendChild(overlay);
+
+    function revealCell(cellEl, idx, gridData) {
+      if (!gridData) return;
+      var row = Math.floor(idx / 3);
+      var col = idx % 3;
+      var emoji = gridData[row] && gridData[row][col] ? gridData[row][col] : '?';
+      cellEl.textContent = emoji;
+      cellEl.style.background = 'rgba(212,168,67,0.15)';
+      cellEl.style.border = '1px solid rgba(212,168,67,0.3)';
+      cellEl.style.cursor = 'default';
+      cellEl.style.transform = 'scale(1.05)';
+      setTimeout(function() { cellEl.style.transform = 'scale(1)'; }, 200);
+    }
+
+    function checkRevealAll(gridEl, overlayEl, res) {
+      if (scratched >= 3) {
+        // Reveal all remaining after a short delay
+        setTimeout(function() {
+          var cells = gridEl.querySelectorAll('div');
+          cells.forEach(function(c, ci) {
+            if (c.dataset.scratched !== 'true') {
+              c.dataset.scratched = 'true';
+              revealCell(c, ci, res.grid);
+            }
+          });
+          // Show result after reveal animation
+          setTimeout(function() {
+            showScratchResult(overlayEl, res.won, res.won ? (res.prizeEmoji + ' ' + res.prizeLabel + ' - $' + Number(res.prizeAmount).toLocaleString() + ' fichas!') : 'Sin premio esta vez');
+          }, 600);
+        }, 400);
+      }
+    }
+  }
+
+  function showScratchResult(overlay, won, message) {
+    var card = overlay.querySelector('div');
+    if (!card) return;
+
+    var resultDiv = document.createElement('div');
+    resultDiv.style.cssText = 'margin-top:16px;padding:12px;border-radius:10px;text-align:center;' +
+      (won ? 'background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);' : 'background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);');
+
+    var icon = document.createElement('div');
+    icon.style.cssText = 'font-size:28px;margin-bottom:4px;';
+    icon.textContent = won ? '🎉' : '😔';
+    resultDiv.appendChild(icon);
+
+    var text = document.createElement('div');
+    text.style.cssText = 'font-size:14px;font-weight:700;color:' + (won ? '#10b981' : '#888') + ';';
+    text.textContent = won ? 'Ganaste!' : 'Suerte la proxima!';
+    resultDiv.appendChild(text);
+
+    var detail = document.createElement('div');
+    detail.style.cssText = 'font-size:12px;color:' + (won ? '#D4A843' : '#666') + ';margin-top:4px;';
+    detail.textContent = message;
+    resultDiv.appendChild(detail);
+
+    card.appendChild(resultDiv);
+
+    // Close button
+    var closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Cerrar';
+    closeBtn.style.cssText = 'margin-top:12px;padding:8px 24px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#e0e0e0;cursor:pointer;font-size:13px;';
+    closeBtn.onclick = function() { overlay.remove(); };
+    card.appendChild(closeBtn);
+
+    // Auto-close
+    setTimeout(function() {
+      if (document.getElementById('scratch-overlay')) overlay.remove();
+    }, 5000);
+  }
+
   // ============================================
   // QUIZ EN VIVO POPUP
   // ============================================

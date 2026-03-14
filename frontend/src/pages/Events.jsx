@@ -15,6 +15,12 @@ import {
   deleteQuiz,
   startQuiz,
   endQuiz as endQuizApi,
+  getScratchCards,
+  getScratchCardById,
+  createScratchCard,
+  deleteScratchCard,
+  startScratchCard,
+  endScratchCard,
 } from '../api';
 import { useToast } from '../context/ToastContext';
 
@@ -24,6 +30,7 @@ import { useToast } from '../context/ToastContext';
 const mainTabs = [
   { id: 'sorteos', label: 'Sorteos', icon: '🎰' },
   { id: 'quiz', label: 'Quiz', icon: '🧠' },
+  { id: 'raspa', label: 'Raspa y Gana', icon: '🎫' },
   { id: 'ruleta', label: 'Ruleta', icon: '🎡' },
   { id: 'ranking', label: 'Ranking', icon: '🏆' },
 ];
@@ -113,6 +120,7 @@ export default function Events() {
       <div style={{ padding: '20px 0' }}>
         {mainTab === 'sorteos' && <SorteosTab />}
         {mainTab === 'quiz' && <QuizTab />}
+        {mainTab === 'raspa' && <RaspaTab />}
         {mainTab === 'ruleta' && <RuletaTab />}
         {mainTab === 'ranking' && <RankingTab />}
       </div>
@@ -1066,6 +1074,450 @@ function QuizTab() {
                       Ver detalle
                     </button>
                     <button onClick={() => handleDeleteQuiz(q.id)} style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', padding: '4px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 11 }}>
+                      Borrar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// RASPA Y GANA TAB
+// ============================================
+function RaspaTab() {
+  const { toast } = useToast();
+  const [subTab, setSubTab] = useState('create');
+  const [cards, setCards] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeCard, setActiveCard] = useState(null);
+  const [activeCardDetail, setActiveCardDetail] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const defaultPrizes = [
+    { label: 'Premio Mayor', amount: 10000, probability: 5, emoji: '💎' },
+    { label: 'Premio Medio', amount: 2000, probability: 15, emoji: '🌟' },
+    { label: 'Premio Menor', amount: 500, probability: 30, emoji: '🍀' },
+    { label: 'Sin premio', amount: 0, probability: 50, emoji: '❌' },
+  ];
+
+  const [form, setForm] = useState({
+    name: '',
+    prizes: [...defaultPrizes],
+  });
+
+  useEffect(() => { loadCards(); }, []);
+
+  // Auto-refresh active card
+  useEffect(() => {
+    if (!activeCard || activeCard.status !== 'active') return;
+    const interval = setInterval(() => { loadCardDetail(activeCard.id); }, 5000);
+    return () => clearInterval(interval);
+  }, [activeCard?.id, activeCard?.status]);
+
+  async function loadCards() {
+    try {
+      const data = await getScratchCards();
+      setCards(Array.isArray(data) ? data : []);
+      const active = (Array.isArray(data) ? data : []).find(c => c.status === 'active');
+      if (active) {
+        setActiveCard(active);
+        setSubTab('active');
+        loadCardDetail(active.id);
+      }
+    } catch (err) {
+      console.error('Error loading scratch cards', err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadCardDetail(id) {
+    try {
+      const detail = await getScratchCardById(id);
+      setActiveCardDetail(detail);
+      if (detail.status !== activeCard?.status) {
+        setActiveCard(prev => prev ? { ...prev, ...detail } : detail);
+      }
+    } catch (err) {
+      console.error('Error loading scratch card detail', err);
+    }
+  }
+
+  async function handleCreate(asDraft = true) {
+    if (!form.name) { toast('Ingresa un nombre', 'error'); return; }
+    const validPrizes = form.prizes.filter(p => p.label && p.emoji);
+    if (validPrizes.length < 2) { toast('Necesitas al menos 2 premios', 'error'); return; }
+    const totalProb = validPrizes.reduce((s, p) => s + p.probability, 0);
+    if (totalProb < 99 || totalProb > 101) { toast(`La probabilidad total debe sumar 100% (ahora: ${totalProb}%)`, 'error'); return; }
+    setSaving(true);
+    try {
+      const card = await createScratchCard({ name: form.name, prizes: validPrizes });
+      toast('Raspa y Gana creado');
+      setCards(prev => [card, ...prev]);
+      if (!asDraft) { await handleStart(card.id); }
+      setForm({ name: '', prizes: [...defaultPrizes] });
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleStart(cardId) {
+    try {
+      const updated = await startScratchCard(cardId);
+      toast('Raspa y Gana activado!');
+      setActiveCard(updated);
+      setSubTab('active');
+      loadCardDetail(updated.id);
+      loadCards();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  async function handleEnd() {
+    if (!activeCard) return;
+    if (!confirm('Terminar este Raspa y Gana?')) return;
+    try {
+      await endScratchCard(activeCard.id);
+      toast('Raspa y Gana terminado');
+      loadCards();
+      setActiveCard(null);
+      setActiveCardDetail(null);
+      setSubTab('create');
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  async function handleDelete(id) {
+    if (!confirm('Borrar este Raspa y Gana?')) return;
+    try {
+      await deleteScratchCard(id);
+      toast('Eliminado');
+      loadCards();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  function updatePrize(index, field, value) {
+    setForm(f => {
+      const newPrizes = [...f.prizes];
+      newPrizes[index] = { ...newPrizes[index], [field]: field === 'amount' || field === 'probability' ? Number(value) : value };
+      return { ...f, prizes: newPrizes };
+    });
+  }
+
+  function addPrize() {
+    setForm(f => ({ ...f, prizes: [...f.prizes, { label: '', amount: 0, probability: 0, emoji: '🎁' }] }));
+  }
+
+  function removePrize(index) {
+    setForm(f => ({ ...f, prizes: f.prizes.filter((_, i) => i !== index) }));
+  }
+
+  const draftCards = cards.filter(c => c.status === 'draft');
+  const historyCards = cards.filter(c => c.status === 'ended');
+  const totalProb = form.prizes.reduce((s, p) => s + (p.probability || 0), 0);
+
+  const subTabs = [
+    { id: 'create', label: '+ Crear' },
+    { id: 'active', label: 'Activo', disabled: !activeCard && !activeCardDetail },
+    { id: 'history', label: 'Historial' },
+  ];
+
+  const emojiOptions = ['💎', '🌟', '🍀', '🎁', '💰', '🏆', '👑', '🔥', '⭐', '❌', '🎲', '🃏'];
+
+  return (
+    <div>
+      {/* Sub-tabs */}
+      <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: 20 }}>
+        {subTabs.map(t => (
+          <button
+            key={t.id}
+            onClick={() => !t.disabled && setSubTab(t.id)}
+            style={{
+              padding: '10px 18px',
+              background: subTab === t.id ? 'rgba(212,168,67,0.08)' : 'transparent',
+              border: 'none',
+              borderBottom: subTab === t.id ? '2px solid #D4A843' : '2px solid transparent',
+              color: t.disabled ? '#555' : subTab === t.id ? '#D4A843' : '#999',
+              cursor: t.disabled ? 'default' : 'pointer',
+              fontSize: 13,
+              fontWeight: subTab === t.id ? 600 : 400,
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* CREATE */}
+      {subTab === 'create' && (
+        <div>
+          {draftCards.length > 0 && (
+            <div style={{ marginBottom: 24 }}>
+              <h3 style={{ color: '#D4A843', marginBottom: 12, fontSize: 16 }}>Borradores</h3>
+              <div style={{ display: 'grid', gap: 10 }}>
+                {draftCards.map(c => (
+                  <div key={c.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: 600, color: '#e0e0e0' }}>{c.name}</div>
+                      <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
+                        {c.prizes?.length || 0} premios configurados
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => handleStart(c.id)} style={{ background: 'linear-gradient(135deg,#D4A843,#b8912e)', color: '#000', border: 'none', padding: '6px 14px', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: 12 }}>
+                        Activar
+                      </button>
+                      <button onClick={() => handleDelete(c.id)} style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', padding: '6px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 12 }}>
+                        Borrar
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <h3 style={{ color: '#D4A843', marginBottom: 16, fontSize: 16 }}>Crear Raspa y Gana</h3>
+          <div style={{ display: 'grid', gap: 14, maxWidth: 600 }}>
+            <div>
+              <label style={labelStyle}>Nombre de la campana *</label>
+              <input style={inputStyle} placeholder="ej: Raspa Viernes Loco" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Premios (probabilidad total debe sumar 100%)</label>
+              <div style={{ display: 'grid', gap: 8, marginTop: 4 }}>
+                {form.prizes.map((prize, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <select
+                      value={prize.emoji}
+                      onChange={e => updatePrize(i, 'emoji', e.target.value)}
+                      style={{ ...inputStyle, width: 50, padding: '6px', textAlign: 'center', fontSize: 18 }}
+                    >
+                      {emojiOptions.map(em => (
+                        <option key={em} value={em}>{em}</option>
+                      ))}
+                    </select>
+                    <input
+                      style={{ ...inputStyle, flex: 2 }}
+                      placeholder="Nombre premio"
+                      value={prize.label}
+                      onChange={e => updatePrize(i, 'label', e.target.value)}
+                    />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ fontSize: 11, color: '#888' }}>$</span>
+                      <input
+                        style={{ ...inputStyle, width: 80 }}
+                        type="number"
+                        placeholder="Monto"
+                        value={prize.amount}
+                        onChange={e => updatePrize(i, 'amount', e.target.value)}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <input
+                        style={{ ...inputStyle, width: 55 }}
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={prize.probability}
+                        onChange={e => updatePrize(i, 'probability', e.target.value)}
+                      />
+                      <span style={{ fontSize: 11, color: '#888' }}>%</span>
+                    </div>
+                    <button
+                      onClick={() => removePrize(i)}
+                      style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, flexShrink: 0 }}
+                    >
+                      X
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                <button onClick={addPrize} style={{ background: 'rgba(255,255,255,0.05)', color: '#999', border: '1px solid rgba(255,255,255,0.1)', padding: '4px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
+                  + Agregar premio
+                </button>
+                <span style={{ fontSize: 12, color: totalProb === 100 ? '#10b981' : '#ef4444', fontWeight: 600 }}>
+                  Total: {totalProb}%
+                </span>
+              </div>
+            </div>
+
+            {/* Preview */}
+            {form.name && (
+              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(212,168,67,0.2)', borderRadius: 12, padding: 16, marginTop: 8 }}>
+                <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>Vista previa de la tarjeta:</div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#D4A843', marginBottom: 8 }}>RASPA Y GANA!</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, maxWidth: 180, margin: '0 auto' }}>
+                    {[0,1,2,3,4,5,6,7,8].map(i => (
+                      <div key={i} style={{ width: 50, height: 50, background: 'linear-gradient(135deg,#888,#aaa)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: '#fff', fontWeight: 700 }}>
+                        ?
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ marginTop: 8, fontSize: 11, color: '#888' }}>
+                    {form.prizes.filter(p => p.amount > 0).map(p => `${p.emoji} ${p.label}: $${Number(p.amount).toLocaleString()} (${p.probability}%)`).join(' | ')}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+              <button onClick={() => handleCreate(true)} disabled={saving} style={{ ...btnStyle, background: 'rgba(255,255,255,0.08)', color: '#e0e0e0', border: '1px solid rgba(255,255,255,0.1)' }}>
+                {saving ? '...' : 'Guardar Borrador'}
+              </button>
+              <button onClick={() => handleCreate(false)} disabled={saving} style={{ ...btnStyle, background: 'linear-gradient(135deg,#D4A843,#b8912e)', color: '#000', fontWeight: 700 }}>
+                {saving ? '...' : 'Crear y Activar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ACTIVE */}
+      {subTab === 'active' && activeCardDetail && (
+        <div>
+          <div style={{ background: 'linear-gradient(135deg, rgba(212,168,67,0.1), rgba(30,25,15,0.5))', border: '1px solid rgba(212,168,67,0.3)', borderRadius: 14, padding: 20, marginBottom: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                  <h2 style={{ color: '#D4A843', margin: 0, fontSize: 20 }}>{activeCardDetail.name}</h2>
+                  <StatusBadge status={activeCardDetail.status} />
+                </div>
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 14 }}>
+              <StatCard label="Rasparon" value={activeCardDetail.totalPlayed || 0} color="#3b82f6" />
+              <StatCard label="Ganadores" value={activeCardDetail.totalWinners || 0} color="#10b981" />
+              <StatCard label="Sin premio" value={(activeCardDetail.totalPlayed || 0) - (activeCardDetail.totalWinners || 0)} color="#888" />
+              <StatCard label="Total repartido" value={`$${Number(activeCardDetail.totalPrizeGiven || 0).toLocaleString()}`} color="#D4A843" />
+            </div>
+
+            {/* Prizes config */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 12, color: '#888', marginBottom: 6 }}>Premios configurados:</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {activeCardDetail.prizes?.map((p, i) => (
+                  <div key={i} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '6px 12px', fontSize: 12 }}>
+                    <span style={{ marginRight: 4 }}>{p.emoji}</span>
+                    <span style={{ color: '#e0e0e0' }}>{p.label}</span>
+                    {p.amount > 0 && <span style={{ color: '#D4A843', marginLeft: 6 }}>${Number(p.amount).toLocaleString()}</span>}
+                    <span style={{ color: '#666', marginLeft: 6 }}>({p.probability}%)</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {activeCardDetail.status === 'active' && (
+              <button onClick={handleEnd} style={{ ...btnStyle, background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+                Terminar Raspa y Gana
+              </button>
+            )}
+          </div>
+
+          {/* Plays table */}
+          {activeCardDetail.plays && activeCardDetail.plays.length > 0 && (
+            <div>
+              <h3 style={{ color: '#e0e0e0', marginBottom: 12, fontSize: 16 }}>Jugadas ({activeCardDetail.plays.length})</h3>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                      <th style={thStyle}>#</th>
+                      <th style={thStyle}>Cliente</th>
+                      <th style={thStyle}>Resultado</th>
+                      <th style={thStyle}>Premio</th>
+                      <th style={thStyle}>Hora</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeCardDetail.plays.map((play, i) => (
+                      <tr key={play.id} style={{
+                        borderBottom: '1px solid rgba(255,255,255,0.04)',
+                        background: play.won ? 'rgba(16,185,129,0.05)' : 'transparent',
+                      }}>
+                        <td style={tdStyle}>{i + 1}</td>
+                        <td style={tdStyle}>{play.clientName || `Cliente #${play.clientId}`}</td>
+                        <td style={tdStyle}>
+                          <span style={{
+                            padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                            background: play.won ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.05)',
+                            color: play.won ? '#10b981' : '#888',
+                          }}>
+                            {play.won ? 'Gano!' : 'Sin premio'}
+                          </span>
+                        </td>
+                        <td style={tdStyle}>
+                          {play.won ? (
+                            <span style={{ color: '#D4A843' }}>{play.prizeLabel} - ${Number(play.prizeAmount).toLocaleString()}</span>
+                          ) : (
+                            <span style={{ color: '#555' }}>-</span>
+                          )}
+                        </td>
+                        <td style={{ ...tdStyle, fontSize: 12, color: '#888' }}>
+                          {new Date(play.playedAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {subTab === 'active' && !activeCardDetail && (
+        <div style={{ textAlign: 'center', color: '#555', padding: 60 }}>
+          <div style={{ fontSize: 40, marginBottom: 10 }}>{'🎫'}</div>
+          <div>No hay Raspa y Gana activo. Crea uno desde "Crear".</div>
+        </div>
+      )}
+
+      {/* HISTORY */}
+      {subTab === 'history' && (
+        <div>
+          <h3 style={{ color: '#D4A843', marginBottom: 14, fontSize: 16 }}>Historial</h3>
+          {historyCards.length === 0 ? (
+            <div style={{ textAlign: 'center', color: '#555', padding: 40 }}>
+              No hay historial
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gap: 10 }}>
+              {historyCards.map(c => (
+                <div key={c.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ fontWeight: 600, color: '#e0e0e0' }}>{c.name}</span>
+                    <span style={{ fontSize: 12, color: '#888' }}>
+                      {c.startedAt ? new Date(c.startedAt).toLocaleDateString('es-AR') : new Date(c.createdAt).toLocaleDateString('es-AR')}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 20, fontSize: 12, color: '#888' }}>
+                    <span>Jugadas: {c.totalPlayed || 0}</span>
+                    <span style={{ color: '#10b981' }}>Ganadores: {c.totalWinners || 0}</span>
+                    <span style={{ color: '#D4A843' }}>Repartido: ${Number(c.totalPrizeGiven || 0).toLocaleString()}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <button onClick={() => { setActiveCard(c); loadCardDetail(c.id); setSubTab('active'); }} style={{ background: 'rgba(255,255,255,0.05)', color: '#999', border: '1px solid rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 11 }}>
+                      Ver detalle
+                    </button>
+                    <button onClick={() => handleDelete(c.id)} style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', padding: '4px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 11 }}>
                       Borrar
                     </button>
                   </div>
