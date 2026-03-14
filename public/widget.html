@@ -3786,8 +3786,10 @@ html, body {
     var ctx = canvas.getContext('2d');
     var isScratching = false;
     var hasCalledAPI = false;
+    var apiError = false;
     var resultData = null;
     var revealThreshold = 45; // % scratched to auto-reveal
+    var revealed = false;
 
     // Draw the scratch coating (silver metallic look)
     function drawScratchCoating() {
@@ -3886,6 +3888,7 @@ html, body {
     function callAPIOnce() {
       if (hasCalledAPI) return;
       hasCalledAPI = true;
+      console.log('[WIDGET] Calling scratch API, clientId:', state.clientId, 'scratchId:', data.id);
       fetch(API_BASE + '/api/scratch-cards/' + data.id + '/play', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3894,9 +3897,16 @@ html, body {
           clientName: state.visitorName || '',
         }),
       })
-      .then(function(r) { return r.json(); })
+      .then(function(r) {
+        console.log('[WIDGET] Scratch API response status:', r.status);
+        return r.json();
+      })
       .then(function(res) {
+        console.log('[WIDGET] Scratch API result:', JSON.stringify(res));
         if (res.error) {
+          apiError = true;
+          // Remove canvas immediately and show error
+          if (canvas.parentNode) canvas.remove();
           showScratchResult(overlay, false, res.error);
           return;
         }
@@ -3916,16 +3926,24 @@ html, body {
             c.style.boxShadow = 'inset 0 0 15px rgba(212,168,67,0.2)';
           }
         });
+        // If already revealed by scratch %, show result now
+        if (revealed) {
+          showScratchResult(overlay, res.won, res.won ?
+            (res.prizeEmoji + ' ' + res.prizeLabel + ' - $' + Number(res.prizeAmount).toLocaleString() + ' fichas!') :
+            'Sin premio esta vez');
+        }
       })
       .catch(function(err) {
         console.error('[WIDGET] Scratch error:', err);
-        hasCalledAPI = false;
+        apiError = true;
+        if (canvas.parentNode) canvas.remove();
+        showScratchResult(overlay, false, 'Error de conexión. Intentá de nuevo.');
       });
     }
 
     var lastCheck = 0;
     function onScratchMove(e) {
-      if (!isScratching) return;
+      if (!isScratching || apiError || revealed) return;
       e.preventDefault();
       var pos = getPos(e);
       scratch(pos.x, pos.y);
@@ -3949,6 +3967,8 @@ html, body {
     }
 
     function revealAll() {
+      if (revealed || apiError) return;
+      revealed = true;
       // Remove canvas with fade
       canvas.style.transition = 'opacity 0.6s';
       canvas.style.opacity = '0';
@@ -3963,24 +3983,14 @@ html, body {
 
       setTimeout(function() {
         if (canvas.parentNode) canvas.remove();
-        // Show result
+        // Show result if API already responded
         if (resultData) {
           showScratchResult(overlay, resultData.won, resultData.won ?
             (resultData.prizeEmoji + ' ' + resultData.prizeLabel + ' - $' + Number(resultData.prizeAmount).toLocaleString() + ' fichas!') :
             'Sin premio esta vez');
-        } else {
-          // API still loading, wait a bit
-          var waitInt = setInterval(function() {
-            if (resultData) {
-              clearInterval(waitInt);
-              showScratchResult(overlay, resultData.won, resultData.won ?
-                (resultData.prizeEmoji + ' ' + resultData.prizeLabel + ' - $' + Number(resultData.prizeAmount).toLocaleString() + ' fichas!') :
-                'Sin premio esta vez');
-            }
-          }, 200);
-          // Timeout after 5s
-          setTimeout(function() { clearInterval(waitInt); }, 5000);
         }
+        // If resultData is still null, the callAPIOnce .then() will call showScratchResult
+        // when it eventually resolves (it checks the `revealed` flag)
       }, 700);
     }
 
@@ -3998,6 +4008,10 @@ html, body {
   }
 
   function showScratchResult(overlay, won, message) {
+    console.log('[WIDGET] showScratchResult called, won:', won, 'message:', message);
+    // Prevent duplicate result display
+    if (overlay._resultShown) return;
+    overlay._resultShown = true;
     var card = overlay.querySelector('div');
     if (!card) return;
 
