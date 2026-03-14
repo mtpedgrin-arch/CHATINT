@@ -1633,9 +1633,35 @@ html, body {
     <span id="event-banner-prize" style="color:#FFD700; font-weight:700; font-size:12px;">🏆 $50.000</span>
     <span style="color:rgba(255,255,255,0.2);">|</span>
     <span id="event-timer" style="font-family:'Courier New',monospace; font-weight:800; font-size:13px; color:#FFD700; letter-spacing:1px; text-shadow:0 0 6px rgba(255,215,0,0.3);">00:00:00</span>
-    <button id="event-banner-btn" style="background:linear-gradient(90deg,#D4A843,#FFD700,#D4A843); background-size:200% 100%; color:#000; border:none; padding:5px 14px; border-radius:12px; font-size:11px; font-weight:800; cursor:pointer; white-space:nowrap; text-transform:uppercase; letter-spacing:0.5px;">PARTICIPÁ</button>
+    <button id="event-banner-btn" style="background:linear-gradient(90deg,#D4A843,#FFD700,#D4A843); background-size:200% 100%; color:#000; border:none; padding:5px 14px; border-radius:12px; font-size:11px; font-weight:800; cursor:pointer; white-space:nowrap; text-transform:uppercase; letter-spacing:0.5px;">PARTICIPA</button>
   </div>
 </div>
+
+<!-- FLOATING ROULETTE BANNER -->
+<div id="roulette-banner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:999998; pointer-events:auto; background:linear-gradient(90deg,#0a0014,#1a0030,#0a0014); border-bottom:1px solid rgba(139,92,246,0.5); box-shadow:0 2px 12px rgba(0,0,0,0.5); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; animation:slideDown 0.4s ease-out;">
+  <div style="display:flex; align-items:center; justify-content:center; gap:12px; padding:8px 16px;">
+    <span style="font-size:16px; animation:spin 2s linear infinite;">🎡</span>
+    <span id="roulette-banner-text" style="color:#a78bfa; font-weight:700; font-size:13px; letter-spacing:0.3px;">Ruleta de Premios!</span>
+    <span id="roulette-banner-name" style="color:#FFD700; font-weight:700; font-size:12px;"></span>
+    <button id="roulette-banner-btn" style="background:linear-gradient(90deg,#8b5cf6,#a78bfa,#8b5cf6); background-size:200% 100%; color:#fff; border:none; padding:6px 18px; border-radius:12px; font-size:12px; font-weight:800; cursor:pointer; white-space:nowrap; text-transform:uppercase; letter-spacing:0.5px; animation:shimmer 2s infinite;">GIRAR!</button>
+  </div>
+</div>
+
+<!-- FLOATING SCRATCH BANNER -->
+<div id="scratch-banner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:999997; pointer-events:auto; background:linear-gradient(90deg,#001a0a,#003015,#001a0a); border-bottom:1px solid rgba(16,185,129,0.5); box-shadow:0 2px 12px rgba(0,0,0,0.5); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; animation:slideDown 0.4s ease-out;">
+  <div style="display:flex; align-items:center; justify-content:center; gap:12px; padding:8px 16px;">
+    <span style="font-size:16px;">🎫</span>
+    <span id="scratch-banner-text" style="color:#10b981; font-weight:700; font-size:13px; letter-spacing:0.3px;">Raspa y Gana!</span>
+    <span id="scratch-banner-name" style="color:#FFD700; font-weight:700; font-size:12px;"></span>
+    <button id="scratch-banner-btn" style="background:linear-gradient(90deg,#10b981,#34d399,#10b981); background-size:200% 100%; color:#000; border:none; padding:6px 18px; border-radius:12px; font-size:12px; font-weight:800; cursor:pointer; white-space:nowrap; text-transform:uppercase; letter-spacing:0.5px; animation:shimmer 2s infinite;">RASPAR!</button>
+  </div>
+</div>
+
+<style>
+@keyframes slideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes shimmer { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+</style>
 
 <!-- ============================================
      TOGGLE BUTTON
@@ -2334,11 +2360,16 @@ html, body {
     // ── RASPA Y GANA ──
     state.socket.on('scratch:started', (data) => {
       console.log('[WIDGET] Scratch card started:', data);
-      showScratchPopup(data);
+      state._activeScratch = data;
+      showScratchBanner(data);
+      addBotMessage('🎫 Se activo Raspa y Gana! Raspa para descubrir tu premio!');
     });
 
     state.socket.on('scratch:ended', (data) => {
       console.log('[WIDGET] Scratch card ended');
+      state._activeScratch = null;
+      var banner = document.getElementById('scratch-banner');
+      if (banner) banner.style.display = 'none';
       var scratchOverlay = document.getElementById('scratch-overlay');
       if (scratchOverlay) scratchOverlay.remove();
     });
@@ -2351,32 +2382,18 @@ html, body {
     // ── RULETA ──
     state.socket.on('roulette:started', (data) => {
       console.log('[WIDGET] *** ROULETTE STARTED ***', JSON.stringify(data));
+      // Store roulette data for banner button
+      state._activeRoulette = data;
+      // Show floating banner (like sorteo)
+      showRouletteBanner(data);
       addBotMessage('🎡 Se activo la Ruleta de Premios! Gira para ganar!');
-      try {
-        // If segments not included, fetch from API
-        if (!data.segments || data.segments.length === 0) {
-          console.log('[WIDGET] No segments in event, fetching from API...');
-          fetch(API_BASE + '/api/roulettes/active')
-            .then(function(r) { return r.json(); })
-            .then(function(res) {
-              console.log('[WIDGET] Roulette API response:', JSON.stringify(res));
-              if (res.roulette) {
-                showRoulettePopup({ id: data.id, name: data.name, segments: res.roulette.segments });
-              } else {
-                showRoulettePopup(data);
-              }
-            })
-            .catch(function(err) { console.error('[WIDGET] Roulette fetch error:', err); showRoulettePopup(data); });
-        } else {
-          showRoulettePopup(data);
-        }
-      } catch(err) {
-        console.error('[WIDGET] Roulette popup error:', err);
-      }
     });
 
     state.socket.on('roulette:ended', (data) => {
       console.log('[WIDGET] Roulette ended');
+      state._activeRoulette = null;
+      var banner = document.getElementById('roulette-banner');
+      if (banner) banner.style.display = 'none';
       var overlay = document.getElementById('roulette-overlay');
       if (overlay) overlay.remove();
     });
@@ -3371,6 +3388,76 @@ html, body {
   var popupTitle = document.getElementById('popup-title');
   var popupBody = document.getElementById('popup-body');
   var popupBtn = document.getElementById('popup-btn');
+
+  // ============================================
+  // ROULETTE BANNER (like event banner)
+  // ============================================
+  function showRouletteBanner(data) {
+    var banner = document.getElementById('roulette-banner');
+    var nameEl = document.getElementById('roulette-banner-name');
+    var btn = document.getElementById('roulette-banner-btn');
+    if (!banner || !btn) return;
+
+    if (nameEl && data.name) nameEl.textContent = data.name;
+
+    // Adjust top if event-banner is visible
+    var eventBanner = document.getElementById('event-banner');
+    if (eventBanner && eventBanner.style.display !== 'none') {
+      banner.style.top = eventBanner.offsetHeight + 'px';
+    } else {
+      banner.style.top = '0';
+    }
+
+    banner.style.display = 'block';
+
+    btn.onclick = function() {
+      // Open widget and show roulette popup inside
+      if (!state.open) toggleWidget(true);
+      var rData = state._activeRoulette || data;
+      // Fetch segments if not present
+      if (!rData.segments || rData.segments.length === 0) {
+        fetch(API_BASE + '/api/roulettes/active')
+          .then(function(r) { return r.json(); })
+          .then(function(res) {
+            if (res.roulette) {
+              showRoulettePopup({ id: rData.id, name: rData.name, segments: res.roulette.segments });
+            } else {
+              showRoulettePopup(rData);
+            }
+          })
+          .catch(function() { showRoulettePopup(rData); });
+      } else {
+        showRoulettePopup(rData);
+      }
+    };
+  }
+
+  // ============================================
+  // SCRATCH BANNER (like event banner)
+  // ============================================
+  function showScratchBanner(data) {
+    var banner = document.getElementById('scratch-banner');
+    var nameEl = document.getElementById('scratch-banner-name');
+    var btn = document.getElementById('scratch-banner-btn');
+    if (!banner || !btn) return;
+
+    if (nameEl && data.name) nameEl.textContent = data.name;
+
+    // Adjust top if other banners visible
+    var topOffset = 0;
+    var eventBanner = document.getElementById('event-banner');
+    if (eventBanner && eventBanner.style.display !== 'none') topOffset += eventBanner.offsetHeight;
+    var rouletteBanner = document.getElementById('roulette-banner');
+    if (rouletteBanner && rouletteBanner.style.display !== 'none') topOffset += rouletteBanner.offsetHeight;
+    banner.style.top = topOffset + 'px';
+
+    banner.style.display = 'block';
+
+    btn.onclick = function() {
+      if (!state.open) toggleWidget(true);
+      showScratchPopup(state._activeScratch || data);
+    };
+  }
 
   // ============================================
   // ACTIVITY TOAST
