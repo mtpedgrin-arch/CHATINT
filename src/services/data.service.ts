@@ -552,6 +552,18 @@ class DataService {
       const raw = fs.readFileSync(DATA_PATH, 'utf-8');
       const data = JSON.parse(raw);
       // Backward compatibility for new collections
+      if (!data.autoMessages || data.autoMessages.length === 0) {
+        // Load default auto messages from template if available
+        try {
+          if (fs.existsSync(TEMPLATE_PATH)) {
+            const tpl = JSON.parse(fs.readFileSync(TEMPLATE_PATH, 'utf-8'));
+            data.autoMessages = tpl.autoMessages || [];
+            console.log(`[DataService] Loaded ${data.autoMessages.length} default auto messages from template`);
+          } else {
+            data.autoMessages = [];
+          }
+        } catch { data.autoMessages = []; }
+      }
       if (!data.pushSubscriptions) data.pushSubscriptions = [];
       if (!data.sentNotifications) data.sentNotifications = [];
       if (!data.popupMessages) data.popupMessages = [];
@@ -562,6 +574,13 @@ class DataService {
       if (!data.dailyAggregates) data.dailyAggregates = [];
       if (!data.paltaTransactions) data.paltaTransactions = [];
       if (!data.pushTrackingEvents) data.pushTrackingEvents = [];
+      if (!data.roulettes) data.roulettes = [];
+      if (!data.rouletteSpins) data.rouletteSpins = [];
+      if (!data.scratchCards) data.scratchCards = [];
+      if (!data.scratchPlays) data.scratchPlays = [];
+      if (!data.missions) data.missions = [];
+      if (!data.missionProgress) data.missionProgress = [];
+      if (!data.activityFeed) data.activityFeed = [];
       if (!data.paltaConfig) data.paltaConfig = {
         email: '', password: '', enabled: false,
         pollIntervalSeconds: 60, autoApprove: true,
