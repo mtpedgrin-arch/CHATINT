@@ -3785,8 +3785,9 @@ html, body {
     // ── Canvas scratch logic ──
     var ctx = canvas.getContext('2d');
     var isScratching = false;
-    var revealThreshold = 45;
+    var revealThreshold = 25; // % of area scratched to auto-reveal
     var finished = false; // true once result is shown
+    var hasScratched = false; // true after first scratch interaction
 
     // === CALL API IMMEDIATELY when popup opens (don't wait for scratch) ===
     var apiPromise = null;
@@ -3940,17 +3941,60 @@ html, body {
       }
     }
 
+    // Check scratch % and auto-reveal if threshold met
+    function checkAndReveal() {
+      if (finished) return;
+      var pct = getScratchPercentage();
+      var progressEl = document.getElementById('scratch-progress');
+      if (progressEl) progressEl.style.width = Math.min(pct / revealThreshold * 100, 100) + '%';
+      if (pct >= revealThreshold) revealAll();
+    }
+
     // Mouse events
-    canvas.addEventListener('mousedown', function(e) { if (finished) return; isScratching = true; var pos = getPos(e); scratch(pos.x, pos.y); });
+    canvas.addEventListener('mousedown', function(e) { if (finished) return; isScratching = true; hasScratched = true; var pos = getPos(e); scratch(pos.x, pos.y); });
     canvas.addEventListener('mousemove', onScratchMove);
-    canvas.addEventListener('mouseup', function() { isScratching = false; });
+    canvas.addEventListener('mouseup', function() { isScratching = false; checkAndReveal(); });
     canvas.addEventListener('mouseleave', function() { isScratching = false; });
 
     // Touch events
-    canvas.addEventListener('touchstart', function(e) { if (finished) return; e.preventDefault(); isScratching = true; var pos = getPos(e); scratch(pos.x, pos.y); }, { passive: false });
+    canvas.addEventListener('touchstart', function(e) { if (finished) return; e.preventDefault(); isScratching = true; hasScratched = true; var pos = getPos(e); scratch(pos.x, pos.y); }, { passive: false });
     canvas.addEventListener('touchmove', function(e) { onScratchMove(e); }, { passive: false });
-    canvas.addEventListener('touchend', function() { isScratching = false; });
+    canvas.addEventListener('touchend', function() { isScratching = false; checkAndReveal(); });
     canvas.addEventListener('touchcancel', function() { isScratching = false; });
+
+    // === "REVELAR" button appears after 2s of first scratch ===
+    var revealBtn = document.createElement('button');
+    revealBtn.id = 'scratch-reveal-btn';
+    revealBtn.textContent = '✨ REVELAR PREMIO';
+    revealBtn.style.cssText = 'display:none;margin-top:8px;padding:10px 24px;background:linear-gradient(135deg,#D4A843,#f59e0b);border:none;border-radius:8px;color:#111;cursor:pointer;font-size:14px;font-weight:700;letter-spacing:0.5px;animation:fadeIn 0.5s;';
+    revealBtn.onclick = function() { revealAll(); };
+    // Insert before the close X button
+    card.appendChild(revealBtn);
+
+    // Show reveal button after 2 seconds of scratching OR auto-reveal after 5 seconds
+    var revealBtnTimer = null;
+    var autoRevealTimer = null;
+
+    function startRevealTimers() {
+      if (revealBtnTimer) return; // already started
+      // Show "REVELAR" button after 2s
+      revealBtnTimer = setTimeout(function() {
+        if (!finished) {
+          revealBtn.style.display = 'block';
+        }
+      }, 2000);
+      // Auto-reveal after 5 seconds no matter what
+      autoRevealTimer = setTimeout(function() {
+        if (!finished) {
+          console.log('[SCRATCH] Auto-reveal after 5s timeout');
+          revealAll();
+        }
+      }, 5000);
+    }
+
+    // Start timers on first interaction
+    canvas.addEventListener('mousedown', function() { startRevealTimers(); });
+    canvas.addEventListener('touchstart', function() { startRevealTimers(); });
   }
 
   function showScratchResult(overlay, won, message) {
