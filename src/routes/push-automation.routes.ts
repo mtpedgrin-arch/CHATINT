@@ -754,6 +754,55 @@ export function createPushAutomationRouter(pushAutomation: PushAutomationService
     }
   });
 
+  // ==========================================================================
+  // GUARDAR CONFIGURACIÓN COMPLETA Y STATS
+  // ==========================================================================
+
+  // Save ALL config at once (single save button from frontend)
+  router.put('/config/all', (req: Request, res: Response) => {
+    try {
+      const data = req.body;
+      const currentConfig = pushAutomation.getConfig();
+
+      // Preserve pushLog — frontend should not send it
+      const pushLog = currentConfig.pushLog || [];
+
+      // Update each section
+      const sections = ['global', 'inactivity', 'scheduled', 'events', 'reconsumo', 'urgencia', 'onboarding', 'segments', 'templates'];
+      for (const section of sections) {
+        if (data[section] !== undefined) {
+          pushAutomation.updateConfig(section as any, data[section]);
+        }
+      }
+
+      // Restore pushLog
+      pushAutomation.updateConfig('pushLog' as any, pushLog);
+
+      res.json({ ok: true, message: 'Configuración completa guardada' });
+    } catch (err) {
+      res.status(500).json({ error: 'Error al guardar configuración' });
+    }
+  });
+
+  // Get push subscribers stats
+  router.get('/push-subscribers-stats', (req: Request, res: Response) => {
+    try {
+      const dataService = require('../services/data.service').default;
+      const clients = dataService.getClients();
+      const subs = dataService.getPushSubscriptions();
+
+      const clientsWithPush = new Set(subs.filter((s: any) => s.clientId).map((s: any) => s.clientId));
+
+      res.json({
+        totalClients: clients.length,
+        clientsWithPush: clientsWithPush.size,
+        adoptionRate: clients.length > 0 ? Math.round((clientsWithPush.size / clients.length) * 100) : 0,
+      });
+    } catch (err) {
+      res.status(500).json({ error: 'Error al obtener stats' });
+    }
+  });
+
   return router;
 }
 

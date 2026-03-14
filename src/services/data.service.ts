@@ -781,6 +781,16 @@ class DataService {
     return (this.store.payments || []).filter(p => p.clientId === clientId);
   }
 
+  getRecentDeposits(clientId: number, days: number): any[] {
+    const cutoff = Date.now() - days * 86400000;
+    return (this.store.payments || []).filter((p: any) =>
+      p.clientId === clientId &&
+      p.type === 'deposit' &&
+      p.status === 'approved' &&
+      new Date(p.processedAt || p.createdAt).getTime() > cutoff
+    );
+  }
+
   getPendingPayments(): Payment[] {
     return (this.store.payments || []).filter(p => p.status === 'pending' || p.status === 'processing');
   }

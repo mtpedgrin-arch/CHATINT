@@ -40,6 +40,46 @@ interface EventTrigger {
   minutesBefore?: number;
 }
 
+/** Regla de reconsumo: triggers basados en balance y depósitos */
+interface ReconsumoRule {
+  id: string;
+  enabled: boolean;
+  triggerType: string; // balance_zero, balance_low, big_win, big_loss, no_deposit_days
+  title: string;
+  body: string;
+  icon: string;
+  url: string;
+  threshold?: number;
+  daysThreshold?: number;
+  onlyOnce: boolean;
+}
+
+/** Regla de urgencia/FOMO */
+interface UrgenciaRule {
+  id: string;
+  enabled: boolean;
+  triggerType: string; // fomo_sorteo_ending, fomo_bono_expiring, fomo_players_online, fomo_someone_won
+  title: string;
+  body: string;
+  icon: string;
+  url: string;
+  minutesBefore?: number;
+  hoursBefore?: number;
+  threshold?: number;
+}
+
+/** Paso de onboarding para nuevos usuarios */
+interface OnboardingStep {
+  id: string;
+  day: number;
+  condition: 'always' | 'deposited' | 'not_deposited';
+  enabled: boolean;
+  title: string;
+  body: string;
+  icon: string;
+  url: string;
+}
+
 /** Definición de un segmento de usuarios */
 interface SegmentDefinition {
   filter: string;
@@ -100,6 +140,18 @@ interface PushAutomationConfig {
   events: {
     enabled: boolean;
     triggers: Record<string, EventTrigger>;
+  };
+  reconsumo: {
+    enabled: boolean;
+    rules: ReconsumoRule[];
+  };
+  urgencia: {
+    enabled: boolean;
+    rules: UrgenciaRule[];
+  };
+  onboarding: {
+    enabled: boolean;
+    steps: OnboardingStep[];
   };
   segments: Record<string, SegmentDefinition>;
   templates: PushTemplate[];
@@ -245,6 +297,9 @@ class PushAutomationService {
         inactivity: { enabled: false, rules: [] },
         scheduled: { enabled: false, campaigns: [] },
         events: { enabled: false, triggers: {} },
+        reconsumo: { enabled: false, rules: [] },
+        urgencia: { enabled: false, rules: [] },
+        onboarding: { enabled: false, steps: [] },
         segments: {},
         templates: [],
         pushLog: [],
@@ -394,6 +449,14 @@ class PushAutomationService {
       console.log(
         `[PUSH-AUTO] Campañas enviadas: ${scheduledResult.campaignsSent.length > 0 ? scheduledResult.campaignsSent.join(', ') : 'ninguna'}`
       );
+
+      // Procesar reglas de reconsumo
+      const reconsumoResult = await this.checkReconsumo();
+      console.log(`[PUSH-AUTO] Reconsumo: ${reconsumoResult.sent} enviados, ${reconsumoResult.skipped} omitidos`);
+
+      // Procesar onboarding de nuevos usuarios
+      const onboardingResult = await this.checkOnboarding();
+      console.log(`[PUSH-AUTO] Onboarding: ${onboardingResult.sent} enviados, ${onboardingResult.skipped} omitidos`);
 
       console.log('[PUSH-AUTO] Ciclo de automatización completado');
     } catch (err) {
@@ -600,6 +663,222 @@ class PushAutomationService {
     }
 
     return result;
+  }
+
+  // ==========================================================================
+  // Procesamiento de reglas de reconsumo
+  // ==========================================================================
+
+  /**
+   * Verifica reglas de reconsumo para todos los clientes con push activo.
+   */
+  async checkReconsumo(): Promise<InactivityResult> {
+    let sent = 0;
+    let skipped = 0;
+
+    try {
+      if (!this.config.reconsumo?.enabled) return { sent, skipped };
+
+      const allSubs = this.dataService.getPushSubscriptions();
+      const clientIds = [...new Set(allSubs.filter(s => s.clientId).map(s => s.clientId!))];
+
+      for (const clientId of clientIds) {
+        const client = this.dataService.getClientById(clientId);
+        if (!client) continue;
+
+        for (const rule of this.config.reconsumo.rules) {
+          if (!rule.enabled) continue;
+
+          let shouldSend = false;
+
+          switch (rule.triggerType) {
+            case 'balance_zero':
+              shouldSend = client.balance === 0;
+              break;
+            case 'balance_low':
+              shouldSend = client.balance > 0 && client.balance < (rule.threshold || 500);
+              break;
+            case 'no_deposit_days': {
+              // Check last deposit date from activities
+              const payments = (this.dataService as any).getPayments?.() || [];
+              const recentDeposit = payments.find((p: any) =>
+                p.clientId === clientId &&
+                p.type === 'deposit' &&
+                p.status === 'approved' &&
+                (Date.now() - new Date(p.processedAt || p.createdAt).getTime()) < (rule.daysThreshold || 3) * 86400000
+              );
+              shouldSend = !recentDeposit;
+              break;
+            }
+            default:
+              break;
+          }
+
+          if (!shouldSend) { skipped++; continue; }
+
+          // Check if already sent today for this rule
+          const today = new Date().toISOString().split('T')[0];
+          const alreadySent = this.config.pushLog.some(
+            l => l.clientId === clientId && l.ruleId === rule.id && l.sentAt.startsWith(today) && l.success
+          );
+          if (alreadySent) { skipped++; continue; }
+
+          if (!this.canSendToUser(clientId)) { skipped++; continue; }
+
+          const subs = this.dataService.getPushSubscriptionsByClient(clientId);
+          for (const sub of subs) {
+            const success = await this.pushService.sendToSubscription(sub, {
+              title: rule.title,
+              body: rule.body,
+              icon: rule.icon || this.config.global.defaultIcon,
+              url: rule.url || this.config.global.defaultUrl,
+            });
+
+            this.addToPushLog({
+              id: `${Date.now()}_${clientId}_reconsumo`,
+              type: 'reconsumo',
+              ruleId: rule.id,
+              clientId,
+              title: rule.title,
+              body: rule.body,
+              sentAt: new Date().toISOString(),
+              success,
+            });
+
+            if (success) sent++;
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[PUSH-AUTO] Error en checkReconsumo:', err);
+    }
+
+    return { sent, skipped };
+  }
+
+  // ==========================================================================
+  // Procesamiento de onboarding para nuevos usuarios
+  // ==========================================================================
+
+  /**
+   * Verifica secuencia de onboarding para clientes nuevos (primeros 7 días).
+   */
+  async checkOnboarding(): Promise<InactivityResult> {
+    let sent = 0;
+    let skipped = 0;
+
+    try {
+      if (!this.config.onboarding?.enabled) return { sent, skipped };
+
+      const allSubs = this.dataService.getPushSubscriptions();
+      const clientIds = [...new Set(allSubs.filter(s => s.clientId).map(s => s.clientId!))];
+
+      for (const clientId of clientIds) {
+        const client = this.dataService.getClientById(clientId);
+        if (!client) continue;
+
+        const daysSinceCreation = Math.floor((Date.now() - new Date(client.createdAt).getTime()) / 86400000);
+        if (daysSinceCreation > 7) continue; // Solo primeros 7 días
+
+        for (const step of this.config.onboarding.steps) {
+          if (!step.enabled) continue;
+          if (step.day !== daysSinceCreation) continue;
+
+          // Check condition
+          if (step.condition === 'deposited' && client.totalDepositos === 0) { skipped++; continue; }
+          if (step.condition === 'not_deposited' && client.totalDepositos > 0) { skipped++; continue; }
+
+          // Check if already sent
+          const today = new Date().toISOString().split('T')[0];
+          const alreadySent = this.config.pushLog.some(
+            l => l.clientId === clientId && l.ruleId === step.id && l.sentAt.startsWith(today) && l.success
+          );
+          if (alreadySent) { skipped++; continue; }
+
+          if (!this.canSendToUser(clientId)) { skipped++; continue; }
+
+          const subs = this.dataService.getPushSubscriptionsByClient(clientId);
+          for (const sub of subs) {
+            const success = await this.pushService.sendToSubscription(sub, {
+              title: step.title,
+              body: step.body,
+              icon: step.icon || this.config.global.defaultIcon,
+              url: step.url || this.config.global.defaultUrl,
+            });
+
+            this.addToPushLog({
+              id: `${Date.now()}_${clientId}_onboarding`,
+              type: 'onboarding',
+              ruleId: step.id,
+              clientId,
+              title: step.title,
+              body: step.body,
+              sentAt: new Date().toISOString(),
+              success,
+            });
+
+            if (success) sent++;
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[PUSH-AUTO] Error en checkOnboarding:', err);
+    }
+
+    return { sent, skipped };
+  }
+
+  // ==========================================================================
+  // Trigger reactivo FOMO/urgencia
+  // ==========================================================================
+
+  /**
+   * Trigger reactivo para FOMO/urgencia. Se llama externamente.
+   */
+  async triggerFomo(ruleId: string, variables?: Record<string, any>): Promise<{ sent: number }> {
+    let sent = 0;
+    try {
+      if (!this.config.urgencia?.enabled) return { sent };
+
+      const rule = this.config.urgencia.rules.find(r => r.id === ruleId);
+      if (!rule || !rule.enabled) return { sent };
+
+      // Replace variables in title/body
+      let title = rule.title;
+      let body = rule.body;
+      if (variables) {
+        for (const [key, val] of Object.entries(variables)) {
+          title = title.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), String(val));
+          body = body.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), String(val));
+        }
+      }
+
+      const allSubs = this.dataService.getPushSubscriptions().filter(s => s.clientId);
+      for (const sub of allSubs) {
+        if (!this.canSendToUser(sub.clientId!)) continue;
+
+        const success = await this.pushService.sendToSubscription(sub, {
+          title, body,
+          icon: rule.icon || this.config.global.defaultIcon,
+          url: rule.url || this.config.global.defaultUrl,
+        });
+
+        this.addToPushLog({
+          id: `${Date.now()}_${sub.clientId}_fomo`,
+          type: 'urgencia',
+          ruleId: rule.id,
+          clientId: sub.clientId,
+          title, body,
+          sentAt: new Date().toISOString(),
+          success,
+        });
+
+        if (success) sent++;
+      }
+    } catch (err) {
+      console.error('[PUSH-AUTO] Error en triggerFomo:', err);
+    }
+    return { sent };
   }
 
   // ==========================================================================
@@ -820,6 +1099,41 @@ class PushAutomationService {
           return subsWithClient.filter(
             (s) => s.client.totalDepositos >= (segment.minDeposits ?? 50000)
           );
+
+        case 'ballena':
+          return subsWithClient.filter(
+            (s) => s.client.totalDepositos >= (segment.minDeposits || 50000)
+          );
+
+        case 'regular':
+          return subsWithClient.filter(
+            (s) => s.client.totalDepositos >= 5000 && s.client.totalDepositos < 50000
+          );
+
+        case 'casual':
+          return subsWithClient.filter(
+            (s) => s.client.totalDepositos >= 1000 && s.client.totalDepositos < 5000
+          );
+
+        case 'nuevo': {
+          const maxDaysNew = segment.maxDays || 7;
+          return subsWithClient.filter((s) => {
+            const createdAt = new Date(s.client.createdAt);
+            const diffMs = now.getTime() - createdAt.getTime();
+            const daysSince = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            return daysSince <= maxDaysNew;
+          });
+        }
+
+        case 'dormido': {
+          const minDaysDormido = segment.minDays || 14;
+          return subsWithClient.filter((s) => {
+            const lastActivity = new Date(s.client.lastActivity);
+            const diffMs = now.getTime() - lastActivity.getTime();
+            const daysSince = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            return daysSince >= minDaysDormido;
+          });
+        }
 
         default:
           console.log(`[PUSH-AUTO] Filtro de segmento desconocido: "${segment.filter}"`);

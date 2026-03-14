@@ -15,6 +15,7 @@ import Notifications from './pages/Notifications';
 import Events from './pages/Events';
 import Analytics from './pages/Analytics';
 import PaltaWallet from './pages/PaltaWallet';
+import PushAutomation from './pages/PushAutomation';
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuth();
@@ -46,6 +47,7 @@ function AppRoutes() {
         <Route path="eventos" element={<Events />} />
         <Route path="analytics" element={<Analytics />} />
         <Route path="palta" element={<PaltaWallet />} />
+        <Route path="push-auto" element={<PushAutomation />} />
         <Route path="ajustes" element={<Settings />} />
       </Route>
       <Route path="*" element={<Navigate to="/chats" replace />} />
