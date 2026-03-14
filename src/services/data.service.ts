@@ -329,6 +329,77 @@ export interface ScratchPlay {
   playedAt: string;
 }
 
+export interface Roulette {
+  id: string;
+  name: string;
+  segments: RouletteSegment[];
+  mode: 'manual' | 'daily' | 'deposit';
+  minDeposit: number;
+  status: 'draft' | 'active' | 'ended';
+  startedAt: string | null;
+  endedAt: string | null;
+  createdAt: string;
+  totalSpins: number;
+  totalPrizeGiven: number;
+}
+
+export interface RouletteSegment {
+  label: string;
+  amount: number;
+  probability: number;
+  color: string;
+  emoji: string;
+}
+
+export interface RouletteSpin {
+  id: string;
+  rouletteId: string;
+  clientId: number;
+  clientName: string;
+  won: boolean;
+  prizeLabel: string;
+  prizeAmount: number;
+  segmentIndex: number;
+  spunAt: string;
+}
+
+export interface Mission {
+  id: string;
+  title: string;
+  description: string;
+  emoji: string;
+  type: 'deposit_count' | 'deposit_amount' | 'login_streak' | 'play_time' | 'invite' | 'custom';
+  target: number;
+  rewardAmount: number;
+  rewardType: 'fichas' | 'spin' | 'scratch';
+  period: 'daily' | 'weekly' | 'permanent';
+  enabled: boolean;
+  createdAt: string;
+}
+
+export interface MissionProgress {
+  id: string;
+  missionId: string;
+  clientId: number;
+  clientName: string;
+  progress: number;
+  completed: boolean;
+  claimed: boolean;
+  startedAt: string;
+  completedAt: string | null;
+  claimedAt: string | null;
+}
+
+export interface ActivityFeedItem {
+  id: string;
+  type: 'scratch_win' | 'quiz_win' | 'roulette_win' | 'sorteo_win' | 'mission_complete' | 'big_deposit' | 'big_win';
+  clientName: string;
+  message: string;
+  amount: number;
+  emoji: string;
+  timestamp: string;
+}
+
 export interface ActivityLog {
   id: string;
   clientId: number;
@@ -409,6 +480,11 @@ export interface Store {
   quizAnswers: QuizAnswer[];
   scratchCards: ScratchCard[];
   scratchPlays: ScratchPlay[];
+  roulettes: Roulette[];
+  rouletteSpins: RouletteSpin[];
+  missions: Mission[];
+  missionProgress: MissionProgress[];
+  activityFeed: ActivityFeedItem[];
   activityLogs: ActivityLog[];
   dailyAggregates: DailyAggregate[];
   paltaTransactions: PaltaTransaction[];
@@ -460,6 +536,9 @@ class DataService {
           events: [], eventEntries: [],
           quizzes: [], quizAnswers: [],
           scratchCards: [], scratchPlays: [],
+          roulettes: [], rouletteSpins: [],
+          missions: [], missionProgress: [],
+          activityFeed: [],
           activityLogs: [], dailyAggregates: [],
           paltaTransactions: [],
           paltaConfig: { email: '', password: '', enabled: false, pollIntervalSeconds: 60, autoApprove: true, headless: true, lastPollAt: null, status: 'stopped' as const, errorMessage: '' },
@@ -1350,6 +1429,105 @@ class DataService {
     this.store.scratchPlays.push(play);
     this.save();
     return play;
+  }
+
+  // ── ROULETTE (Ruleta) ──────────────────────────
+  getRoulettes(): Roulette[] { return this.store.roulettes || []; }
+  getRouletteById(id: string): Roulette | undefined { return (this.store.roulettes || []).find(r => r.id === id); }
+  getActiveRoulette(): Roulette | undefined { return (this.store.roulettes || []).find(r => r.status === 'active'); }
+
+  createRoulette(data: Omit<Roulette, 'id' | 'createdAt' | 'startedAt' | 'endedAt' | 'totalSpins' | 'totalPrizeGiven'>): Roulette {
+    const { v4: uuid } = require('uuid');
+    const r: Roulette = { ...data, id: uuid(), createdAt: new Date().toISOString(), startedAt: null, endedAt: null, totalSpins: 0, totalPrizeGiven: 0 };
+    if (!this.store.roulettes) this.store.roulettes = [];
+    this.store.roulettes.push(r); this.save(); return r;
+  }
+
+  updateRoulette(id: string, data: Partial<Roulette>): Roulette | null {
+    if (!this.store.roulettes) return null;
+    const idx = this.store.roulettes.findIndex(r => r.id === id);
+    if (idx === -1) return null;
+    this.store.roulettes[idx] = { ...this.store.roulettes[idx], ...data };
+    this.save(); return this.store.roulettes[idx];
+  }
+
+  deleteRoulette(id: string): boolean {
+    if (!this.store.roulettes) return false;
+    const before = this.store.roulettes.length;
+    this.store.roulettes = this.store.roulettes.filter(r => r.id !== id);
+    if (this.store.rouletteSpins) this.store.rouletteSpins = this.store.rouletteSpins.filter(s => s.rouletteId !== id);
+    this.save(); return this.store.roulettes.length < before;
+  }
+
+  getRouletteSpins(rouletteId: string): RouletteSpin[] { return (this.store.rouletteSpins || []).filter(s => s.rouletteId === rouletteId); }
+  getRouletteSpinByClient(rouletteId: string, clientId: number): RouletteSpin | undefined { return (this.store.rouletteSpins || []).find(s => s.rouletteId === rouletteId && s.clientId === clientId); }
+
+  createRouletteSpin(data: Omit<RouletteSpin, 'id' | 'spunAt'>): RouletteSpin {
+    const { v4: uuid } = require('uuid');
+    const spin: RouletteSpin = { ...data, id: uuid(), spunAt: new Date().toISOString() };
+    if (!this.store.rouletteSpins) this.store.rouletteSpins = [];
+    this.store.rouletteSpins.push(spin); this.save(); return spin;
+  }
+
+  // ── MISSIONS (Misiones) ──────────────────────────
+  getMissions(): Mission[] { return this.store.missions || []; }
+  getMissionById(id: string): Mission | undefined { return (this.store.missions || []).find(m => m.id === id); }
+
+  createMission(data: Omit<Mission, 'id' | 'createdAt'>): Mission {
+    const { v4: uuid } = require('uuid');
+    const m: Mission = { ...data, id: uuid(), createdAt: new Date().toISOString() };
+    if (!this.store.missions) this.store.missions = [];
+    this.store.missions.push(m); this.save(); return m;
+  }
+
+  updateMission(id: string, data: Partial<Mission>): Mission | null {
+    if (!this.store.missions) return null;
+    const idx = this.store.missions.findIndex(m => m.id === id);
+    if (idx === -1) return null;
+    this.store.missions[idx] = { ...this.store.missions[idx], ...data };
+    this.save(); return this.store.missions[idx];
+  }
+
+  deleteMission(id: string): boolean {
+    if (!this.store.missions) return false;
+    const before = this.store.missions.length;
+    this.store.missions = this.store.missions.filter(m => m.id !== id);
+    if (this.store.missionProgress) this.store.missionProgress = this.store.missionProgress.filter(p => p.missionId !== id);
+    this.save(); return this.store.missions.length < before;
+  }
+
+  getMissionProgress(missionId: string): MissionProgress[] { return (this.store.missionProgress || []).filter(p => p.missionId === missionId); }
+  getClientMissionProgress(clientId: number): MissionProgress[] { return (this.store.missionProgress || []).filter(p => p.clientId === clientId); }
+  getClientMissionForMission(clientId: number, missionId: string): MissionProgress | undefined { return (this.store.missionProgress || []).find(p => p.clientId === clientId && p.missionId === missionId); }
+
+  createMissionProgress(data: Omit<MissionProgress, 'id' | 'startedAt' | 'completedAt' | 'claimedAt'>): MissionProgress {
+    const { v4: uuid } = require('uuid');
+    const p: MissionProgress = { ...data, id: uuid(), startedAt: new Date().toISOString(), completedAt: null, claimedAt: null };
+    if (!this.store.missionProgress) this.store.missionProgress = [];
+    this.store.missionProgress.push(p); this.save(); return p;
+  }
+
+  updateMissionProgress(id: string, data: Partial<MissionProgress>): MissionProgress | null {
+    if (!this.store.missionProgress) return null;
+    const idx = this.store.missionProgress.findIndex(p => p.id === id);
+    if (idx === -1) return null;
+    this.store.missionProgress[idx] = { ...this.store.missionProgress[idx], ...data };
+    this.save(); return this.store.missionProgress[idx];
+  }
+
+  // ── ACTIVITY FEED ──────────────────────────
+  getActivityFeed(limit: number = 50): ActivityFeedItem[] {
+    return (this.store.activityFeed || []).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, limit);
+  }
+
+  addActivityFeedItem(data: Omit<ActivityFeedItem, 'id' | 'timestamp'>): ActivityFeedItem {
+    const { v4: uuid } = require('uuid');
+    const item: ActivityFeedItem = { ...data, id: uuid(), timestamp: new Date().toISOString() };
+    if (!this.store.activityFeed) this.store.activityFeed = [];
+    this.store.activityFeed.push(item);
+    // Keep max 200 items
+    if (this.store.activityFeed.length > 200) this.store.activityFeed = this.store.activityFeed.slice(-200);
+    this.save(); return item;
   }
 
   // ── ACTIVITY LOGS ──────────────────────────

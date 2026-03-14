@@ -11,6 +11,9 @@ import notificationRoutes from './routes/notification.routes';
 import eventRoutes from './routes/event.routes';
 import quizRoutes from './routes/quiz.routes';
 import scratchRoutes from './routes/scratch.routes';
+import rouletteRoutes from './routes/roulette.routes';
+import missionRoutes from './routes/mission.routes';
+import feedRoutes from './routes/feed.routes';
 import { dataService } from './services/data.service';
 import { pushService } from './services/push.service';
 import { createPushAutomation } from './services/push-automation.service';
@@ -175,6 +178,9 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api', eventRoutes);
 app.use('/api', quizRoutes);
 app.use('/api', scratchRoutes);
+app.use('/api', rouletteRoutes);
+app.use('/api', missionRoutes);
+app.use('/api', feedRoutes);
 
 // Push Automation System (disabled by default - activate from admin panel or API)
 const pushAutomation = createPushAutomation(dataService, pushService);

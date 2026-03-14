@@ -178,6 +178,24 @@ export const deleteScratchCard = (id) => apiFetch(`/api/admin/scratch-cards/${id
 export const startScratchCard = (id) => apiFetch(`/api/admin/scratch-cards/${id}/start`, { method: 'POST' });
 export const endScratchCard = (id) => apiFetch(`/api/admin/scratch-cards/${id}/end`, { method: 'POST' });
 
+// Roulettes (Ruleta)
+export const getRoulettes = () => apiFetch('/api/admin/roulettes');
+export const getRouletteById = (id) => apiFetch(`/api/admin/roulettes/${id}`);
+export const createRoulette = (data) => apiFetch('/api/admin/roulettes', { method: 'POST', body: JSON.stringify(data) });
+export const deleteRoulette = (id) => apiFetch(`/api/admin/roulettes/${id}`, { method: 'DELETE' });
+export const startRoulette = (id) => apiFetch(`/api/admin/roulettes/${id}/start`, { method: 'POST' });
+export const endRoulette = (id) => apiFetch(`/api/admin/roulettes/${id}/end`, { method: 'POST' });
+
+// Missions (Misiones)
+export const getMissions = () => apiFetch('/api/admin/missions');
+export const getMissionById = (id) => apiFetch(`/api/admin/missions/${id}`);
+export const createMission = (data) => apiFetch('/api/admin/missions', { method: 'POST', body: JSON.stringify(data) });
+export const updateMission = (id, data) => apiFetch(`/api/admin/missions/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const deleteMission = (id) => apiFetch(`/api/admin/missions/${id}`, { method: 'DELETE' });
+
+// Activity Feed
+export const getActivityFeed = (limit = 50) => apiFetch(`/api/admin/activity-feed?limit=${limit}`);
+
 // Analytics
 export const getAnalyticsOverview = () => apiFetch('/api/analytics/overview');
 export const getAnalyticsActiveUsers = (from, to, period = 'day') => apiFetch(`/api/analytics/active-users?from=${from}&to=${to}&period=${period}`);

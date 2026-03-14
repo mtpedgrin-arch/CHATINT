@@ -2348,6 +2348,43 @@ html, body {
       addBotMessage('🎫 Ganaste raspando! ' + data.prizeEmoji + ' ' + data.prizeLabel + ': $' + Number(data.prizeAmount).toLocaleString() + ' fichas acreditadas.');
     });
 
+    // ── RULETA ──
+    state.socket.on('roulette:started', (data) => {
+      console.log('[WIDGET] Roulette started:', data);
+      showRoulettePopup(data);
+    });
+
+    state.socket.on('roulette:ended', (data) => {
+      console.log('[WIDGET] Roulette ended');
+      var overlay = document.getElementById('roulette-overlay');
+      if (overlay) overlay.remove();
+    });
+
+    state.socket.on('roulette:won', (data) => {
+      console.log('[WIDGET] Roulette won!', data);
+      addBotMessage('🎡 Ganaste en la Ruleta! ' + data.prizeEmoji + ' ' + data.prizeLabel + ': $' + Number(data.prizeAmount).toLocaleString() + ' fichas acreditadas.');
+    });
+
+    // ── MISIONES ──
+    state.socket.on('mission:completed', (data) => {
+      console.log('[WIDGET] Mission completed!', data);
+      addBotMessage(data.emoji + ' Mision completada: "' + data.title + '"! Reclama tu premio de $' + Number(data.rewardAmount).toLocaleString() + ' fichas.');
+    });
+
+    state.socket.on('mission:claimed', (data) => {
+      console.log('[WIDGET] Mission claimed!', data);
+      addBotMessage('🎉 Premio de mision reclamado: $' + Number(data.rewardAmount).toLocaleString() + ' fichas acreditadas!');
+    });
+
+    // ── ACTIVITY FEED ──
+    state.socket.on('activity:new', (data) => {
+      console.log('[WIDGET] New activity:', data);
+      // Show subtle toast at top
+      if (data && data.clientName && data.message) {
+        showActivityToast(data.emoji + ' ' + data.clientName + ' ' + data.message);
+      }
+    });
+
     // ── FICHAS CARGADAS popup ──
     state.socket.on('payment:approved', (data) => {
       console.log('[WIDGET] 🎰 payment:approved received:', JSON.stringify(data));
@@ -3313,6 +3350,170 @@ html, body {
   var popupTitle = document.getElementById('popup-title');
   var popupBody = document.getElementById('popup-body');
   var popupBtn = document.getElementById('popup-btn');
+
+  // ============================================
+  // ACTIVITY TOAST
+  // ============================================
+  function showActivityToast(text) {
+    var panel = document.querySelector('.widget-panel');
+    if (!panel) return;
+    var toast = document.createElement('div');
+    toast.style.cssText = 'position:absolute;top:50px;left:10px;right:10px;background:rgba(30,30,50,0.95);border:1px solid rgba(212,168,67,0.3);border-radius:8px;padding:8px 12px;z-index:150;font-size:12px;color:#D4A843;text-align:center;animation:fadeIn 0.3s;';
+    toast.textContent = text;
+    panel.appendChild(toast);
+    setTimeout(function() { if (toast.parentNode) toast.remove(); }, 4000);
+  }
+
+  // ============================================
+  // RULETA POPUP
+  // ============================================
+  function showRoulettePopup(data) {
+    if (!state.clientId) return;
+    if (!state.open) toggleWidget(true);
+
+    var existing = document.getElementById('roulette-overlay');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'roulette-overlay';
+    overlay.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;';
+
+    var card = document.createElement('div');
+    card.style.cssText = 'background:#1a1a2e;border:2px solid #D4A843;border-radius:16px;padding:20px;width:100%;max-width:300px;text-align:center;';
+
+    var header = document.createElement('div');
+    header.style.cssText = 'font-size:16px;color:#D4A843;font-weight:700;margin-bottom:4px;';
+    header.textContent = 'RULETA DE PREMIOS!';
+    card.appendChild(header);
+
+    var subtitle = document.createElement('div');
+    subtitle.style.cssText = 'font-size:12px;color:#888;margin-bottom:16px;';
+    subtitle.textContent = data.name || 'Gira la ruleta para ganar';
+    card.appendChild(subtitle);
+
+    // Simple animated wheel using CSS
+    var wheelContainer = document.createElement('div');
+    wheelContainer.style.cssText = 'position:relative;width:200px;height:200px;margin:0 auto 16px;';
+
+    // Pointer arrow
+    var pointer = document.createElement('div');
+    pointer.style.cssText = 'position:absolute;top:-5px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:10px solid transparent;border-right:10px solid transparent;border-top:20px solid #D4A843;z-index:5;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));';
+    wheelContainer.appendChild(pointer);
+
+    var wheel = document.createElement('div');
+    wheel.style.cssText = 'width:200px;height:200px;border-radius:50%;border:3px solid #D4A843;position:relative;overflow:hidden;transition:transform 4s cubic-bezier(0.17,0.67,0.12,0.99);';
+
+    // Create segments as colored sectors using conic-gradient
+    var colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#7f8c8d'];
+    var segLabels = data.roulette ? data.roulette.segments : (data.segments || []);
+    var numSegs = segLabels.length || 8;
+    var gradientParts = [];
+    var pct = 0;
+    for (var si = 0; si < numSegs; si++) {
+      var segPct = 100 / numSegs;
+      var color = segLabels[si] ? (segLabels[si].color || colors[si % colors.length]) : colors[si % colors.length];
+      gradientParts.push(color + ' ' + pct + '% ' + (pct + segPct) + '%');
+      pct += segPct;
+    }
+    wheel.style.background = 'conic-gradient(' + gradientParts.join(', ') + ')';
+
+    // Add emoji labels on wheel
+    for (var si2 = 0; si2 < numSegs; si2++) {
+      var angle = (si2 * 360 / numSegs) + (180 / numSegs);
+      var lbl = document.createElement('div');
+      lbl.style.cssText = 'position:absolute;font-size:16px;transform:translate(-50%,-50%);';
+      lbl.style.left = (50 + 35 * Math.cos((angle - 90) * Math.PI / 180)) + '%';
+      lbl.style.top = (50 + 35 * Math.sin((angle - 90) * Math.PI / 180)) + '%';
+      lbl.textContent = segLabels[si2] ? (segLabels[si2].emoji || '🎁') : '🎁';
+      wheel.appendChild(lbl);
+    }
+
+    wheelContainer.appendChild(wheel);
+
+    // Center circle
+    var center = document.createElement('div');
+    center.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:36px;height:36px;border-radius:50%;background:#1a1a2e;border:2px solid #D4A843;display:flex;align-items:center;justify-content:center;font-size:16px;z-index:3;';
+    center.textContent = '🎡';
+    wheelContainer.appendChild(center);
+
+    card.appendChild(wheelContainer);
+
+    // Spin button
+    var spinBtn = document.createElement('button');
+    spinBtn.textContent = 'GIRAR!';
+    spinBtn.style.cssText = 'padding:10px 32px;background:linear-gradient(135deg,#D4A843,#b8912e);color:#000;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;';
+    var hasSpun = false;
+
+    spinBtn.onclick = function() {
+      if (hasSpun) return;
+      hasSpun = true;
+      spinBtn.textContent = 'Girando...';
+      spinBtn.style.opacity = '0.6';
+
+      fetch(API_BASE + '/api/roulettes/' + data.id + '/spin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: state.clientId, clientName: state.visitorName || '' }),
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        if (res.error) {
+          showRouletteResult(card, false, res.error);
+          return;
+        }
+        // Animate wheel
+        wheel.style.transform = 'rotate(' + (res.rotation || 1800) + 'deg)';
+        setTimeout(function() {
+          showRouletteResult(card, res.won, res.won ? (res.prizeEmoji + ' ' + res.prizeLabel + ' - $' + Number(res.prizeAmount).toLocaleString() + ' fichas!') : 'Sin premio esta vez. Suerte la proxima!');
+        }, 4200);
+      })
+      .catch(function(err) {
+        console.error('[WIDGET] Roulette error:', err);
+        hasSpun = false;
+        spinBtn.textContent = 'GIRAR!';
+        spinBtn.style.opacity = '1';
+      });
+    };
+
+    card.appendChild(spinBtn);
+    overlay.appendChild(card);
+
+    var panel = document.querySelector('.widget-panel');
+    if (panel) panel.appendChild(overlay);
+  }
+
+  function showRouletteResult(card, won, message) {
+    var resultDiv = document.createElement('div');
+    resultDiv.style.cssText = 'margin-top:16px;padding:12px;border-radius:10px;text-align:center;' +
+      (won ? 'background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);' : 'background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);');
+    var icon = document.createElement('div');
+    icon.style.cssText = 'font-size:28px;margin-bottom:4px;';
+    icon.textContent = won ? '🎉' : '😔';
+    resultDiv.appendChild(icon);
+    var text = document.createElement('div');
+    text.style.cssText = 'font-size:14px;font-weight:700;color:' + (won ? '#10b981' : '#888') + ';';
+    text.textContent = won ? 'Ganaste!' : 'Suerte la proxima!';
+    resultDiv.appendChild(text);
+    var detail = document.createElement('div');
+    detail.style.cssText = 'font-size:12px;color:' + (won ? '#D4A843' : '#666') + ';margin-top:4px;';
+    detail.textContent = message;
+    resultDiv.appendChild(detail);
+    card.appendChild(resultDiv);
+
+    var closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Cerrar';
+    closeBtn.style.cssText = 'margin-top:12px;padding:8px 24px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#e0e0e0;cursor:pointer;font-size:13px;';
+    closeBtn.onclick = function() {
+      var overlay = document.getElementById('roulette-overlay');
+      if (overlay) overlay.remove();
+    };
+    card.appendChild(closeBtn);
+
+    setTimeout(function() {
+      var overlay = document.getElementById('roulette-overlay');
+      if (overlay) overlay.remove();
+    }, 6000);
+  }
 
   // ============================================
   // RASPA Y GANA POPUP
