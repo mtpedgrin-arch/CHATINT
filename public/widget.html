@@ -2363,6 +2363,14 @@ html, body {
       state._activeScratch = data;
       showScratchBanner(data);
       addBotMessage('🎫 Se activo Raspa y Gana! Raspa para descubrir tu premio!');
+      // Show announcement popup (like sorteo)
+      showPopupOverlay({
+        title: '🎫 ¡RASPA Y GANÁ!',
+        body: (data.name || 'Raspa y Gana') + ' - ¡Raspá tu tarjeta y descubrí tu premio!',
+        imageUrl: '',
+        buttonText: '¡RASPAR AHORA!',
+        buttonAction: 'scratch_play'
+      });
     });
 
     state.socket.on('scratch:ended', (data) => {
@@ -2372,6 +2380,17 @@ html, body {
       if (banner) banner.style.display = 'none';
       var scratchOverlay = document.getElementById('scratch-overlay');
       if (scratchOverlay) scratchOverlay.remove();
+      // Reset iframe position (recalculate based on remaining banners)
+      var bgIframe = getBgIframe();
+      if (bgIframe) {
+        var totalH = 0;
+        var eb = document.getElementById('event-banner');
+        if (eb && eb.style.display !== 'none') totalH += eb.offsetHeight;
+        var rb = document.getElementById('roulette-banner');
+        if (rb && rb.style.display !== 'none') totalH += rb.offsetHeight;
+        bgIframe.style.top = totalH ? (totalH + 'px') : '0';
+        bgIframe.style.height = totalH ? ('calc(100% - ' + totalH + 'px)') : '100%';
+      }
     });
 
     state.socket.on('scratch:won', (data) => {
@@ -2387,6 +2406,14 @@ html, body {
       // Show floating banner (like sorteo)
       showRouletteBanner(data);
       addBotMessage('🎡 Se activo la Ruleta de Premios! Gira para ganar!');
+      // Show announcement popup (like sorteo)
+      showPopupOverlay({
+        title: '🎡 ¡RULETA DE PREMIOS!',
+        body: (data.name || 'Ruleta') + ' - ¡Girá la ruleta y ganá premios increíbles!',
+        imageUrl: '',
+        buttonText: '¡GIRAR AHORA!',
+        buttonAction: 'roulette_spin'
+      });
     });
 
     state.socket.on('roulette:ended', (data) => {
@@ -2396,6 +2423,17 @@ html, body {
       if (banner) banner.style.display = 'none';
       var overlay = document.getElementById('roulette-overlay');
       if (overlay) overlay.remove();
+      // Reset iframe position (recalculate based on remaining banners)
+      var bgIframe = getBgIframe();
+      if (bgIframe) {
+        var totalH = 0;
+        var eb = document.getElementById('event-banner');
+        if (eb && eb.style.display !== 'none') totalH += eb.offsetHeight;
+        var sb = document.getElementById('scratch-banner');
+        if (sb && sb.style.display !== 'none') totalH += sb.offsetHeight;
+        bgIframe.style.top = totalH ? (totalH + 'px') : '0';
+        bgIframe.style.height = totalH ? ('calc(100% - ' + totalH + 'px)') : '100%';
+      }
     });
 
     state.socket.on('roulette:won', (data) => {
@@ -3410,6 +3448,19 @@ html, body {
 
     banner.style.display = 'block';
 
+    // Push iframe down below banner (like sorteo)
+    setTimeout(function() {
+      var bgIframe = getBgIframe();
+      if (bgIframe) {
+        var totalH = 0;
+        var eb = document.getElementById('event-banner');
+        if (eb && eb.style.display !== 'none') totalH += eb.offsetHeight;
+        totalH += banner.offsetHeight;
+        bgIframe.style.top = totalH + 'px';
+        bgIframe.style.height = 'calc(100% - ' + totalH + 'px)';
+      }
+    }, 50);
+
     btn.onclick = function() {
       // Open widget and show roulette popup inside
       if (!state.open) toggleWidget(true);
@@ -3452,6 +3503,21 @@ html, body {
     banner.style.top = topOffset + 'px';
 
     banner.style.display = 'block';
+
+    // Push iframe down below all banners (like sorteo)
+    setTimeout(function() {
+      var bgIframe = getBgIframe();
+      if (bgIframe) {
+        var totalH = 0;
+        var eb = document.getElementById('event-banner');
+        if (eb && eb.style.display !== 'none') totalH += eb.offsetHeight;
+        var rb = document.getElementById('roulette-banner');
+        if (rb && rb.style.display !== 'none') totalH += rb.offsetHeight;
+        totalH += banner.offsetHeight;
+        bgIframe.style.top = totalH + 'px';
+        bgIframe.style.height = 'calc(100% - ' + totalH + 'px)';
+      }
+    }, 50);
 
     btn.onclick = function() {
       if (!state.open) toggleWidget(true);
@@ -4085,6 +4151,37 @@ html, body {
             setTimeout(function() { showMainOptions(); }, 300);
           }
           // If inFlow → just opens the widget, the current conversation continues untouched
+        };
+      } else if (data.buttonAction === 'roulette_spin') {
+        popupBtn.onclick = function(e) {
+          e.preventDefault();
+          closePopupOverlay();
+          if (!state.open) toggleWidget(true);
+          var rData = state._activeRoulette;
+          if (rData) {
+            if (!rData.segments || rData.segments.length === 0) {
+              fetch(API_BASE + '/api/roulettes/active')
+                .then(function(r) { return r.json(); })
+                .then(function(res) {
+                  if (res.roulette) {
+                    showRoulettePopup({ id: rData.id, name: rData.name, segments: res.roulette.segments });
+                  } else {
+                    showRoulettePopup(rData);
+                  }
+                })
+                .catch(function() { showRoulettePopup(rData); });
+            } else {
+              showRoulettePopup(rData);
+            }
+          }
+        };
+      } else if (data.buttonAction === 'scratch_play') {
+        popupBtn.onclick = function(e) {
+          e.preventDefault();
+          closePopupOverlay();
+          if (!state.open) toggleWidget(true);
+          var sData = state._activeScratch;
+          if (sData) showScratchPopup(sData);
         };
       } else if (data.buttonAction === 'link' && data.buttonUrl) {
         popupBtn.href = data.buttonUrl;
