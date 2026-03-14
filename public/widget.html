@@ -3476,15 +3476,14 @@ html, body {
   // RULETA POPUP
   // ============================================
   function showRoulettePopup(data) {
-    console.log('[WIDGET] showRoulettePopup called, clientId:', state.clientId, 'open:', state.open);
-    if (!state.open) toggleWidget(true);
+    console.log('[WIDGET] showRoulettePopup called, clientId:', state.clientId);
 
     var existing = document.getElementById('roulette-overlay');
     if (existing) existing.remove();
 
     var overlay = document.createElement('div');
     overlay.id = 'roulette-overlay';
-    overlay.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:auto;';
 
     var card = document.createElement('div');
     card.style.cssText = 'background:#1a1a2e;border:2px solid #D4A843;border-radius:16px;padding:20px;width:100%;max-width:300px;text-align:center;';
@@ -3599,8 +3598,7 @@ html, body {
     card.appendChild(spinBtn);
     overlay.appendChild(card);
 
-    var panel = document.getElementById('chat-container');
-    if (panel) panel.appendChild(overlay);
+    document.body.appendChild(overlay);
   }
 
   function showRouletteResult(card, won, message) {
@@ -3633,7 +3631,7 @@ html, body {
     setTimeout(function() {
       var overlay = document.getElementById('roulette-overlay');
       if (overlay) overlay.remove();
-    }, 6000);
+    }, 8000);
   }
 
   // ============================================
@@ -3641,15 +3639,13 @@ html, body {
   // ============================================
   function showScratchPopup(data) {
     // data: { id, name }
-    if (!state.clientId) return;
-    if (!state.open) toggleWidget(true);
 
     var existing = document.getElementById('scratch-overlay');
     if (existing) existing.remove();
 
     var overlay = document.createElement('div');
     overlay.id = 'scratch-overlay';
-    overlay.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.88);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:auto;';
 
     var card = document.createElement('div');
     card.style.cssText = 'background:#1a1a2e;border:2px solid #D4A843;border-radius:16px;padding:20px;width:100%;max-width:300px;text-align:center;';
@@ -3733,8 +3729,7 @@ html, body {
 
     overlay.appendChild(card);
 
-    var panel = document.getElementById('chat-container');
-    if (panel) panel.appendChild(overlay);
+    document.body.appendChild(overlay);
 
     function revealCell(cellEl, idx, gridData) {
       if (!gridData) return;
@@ -3824,7 +3819,7 @@ html, body {
     var overlay = document.createElement('div');
     overlay.id = 'quiz-overlay';
     overlay.className = 'show';
-    overlay.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:auto;';
 
     var card = document.createElement('div');
     card.style.cssText = 'background:#1a1a2e;border:2px solid #8b5cf6;border-radius:16px;padding:20px;width:100%;max-width:340px;text-align:center;position:relative;overflow:hidden;';
@@ -3878,11 +3873,8 @@ html, body {
 
     overlay.appendChild(card);
 
-    // Add to widget panel
-    var panel = document.getElementById('chat-container');
-    if (panel) {
-      panel.appendChild(overlay);
-    }
+    // Add to page (fullscreen)
+    document.body.appendChild(overlay);
 
     // Start countdown
     var timeLeft = data.timeLimit;
