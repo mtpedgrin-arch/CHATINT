@@ -554,15 +554,41 @@ class DataService {
       // Backward compatibility for new collections
       if (!data.autoMessages || data.autoMessages.length === 0) {
         // Load default auto messages from template if available
+        let loaded = false;
         try {
           if (fs.existsSync(TEMPLATE_PATH)) {
             const tpl = JSON.parse(fs.readFileSync(TEMPLATE_PATH, 'utf-8'));
-            data.autoMessages = tpl.autoMessages || [];
-            console.log(`[DataService] Loaded ${data.autoMessages.length} default auto messages from template`);
-          } else {
-            data.autoMessages = [];
+            if (tpl.autoMessages && tpl.autoMessages.length > 0) {
+              data.autoMessages = tpl.autoMessages;
+              loaded = true;
+              console.log(`[DataService] Loaded ${data.autoMessages.length} default auto messages from template`);
+            }
           }
-        } catch { data.autoMessages = []; }
+        } catch (e) { console.error('[DataService] Error loading template autoMessages:', e); }
+        if (!loaded) {
+          // Hardcoded essential defaults if template not available
+          data.autoMessages = [
+            { id:1, tipo:'welcome', mensaje:'¡TE DOY LA BIENVENIDA! 🎰\n\nTu nombre de USUARIO es: {{username}}\nTu CONTRASEÑA es: {{password}}\n\n¡Empezá a jugar ahora!', categoria:'bienvenida' },
+            { id:2, tipo:'opciones', mensaje:'❤️ Elegí la opción que necesites:', categoria:'bienvenida' },
+            { id:3, tipo:'cuenta', mensaje:'¿Desea recibir los datos por CBU o ALIAS?', categoria:'carga' },
+            { id:4, tipo:'cbu_selected', mensaje:'📋 Datos para transferencia por CBU:\n\nCBU: {{cbu}}\nTitular: {{titular}}\n\nEnviá el comprobante con todos los datos visibles 🧾', categoria:'carga' },
+            { id:5, tipo:'alias_selected', mensaje:'📋 Datos para transferencia por ALIAS:\n\nALIAS: {{alias}}\nTitular: {{titular}}\n\nEnviá el comprobante con todos los datos visibles 🧾', categoria:'carga' },
+            { id:6, tipo:'deposito_completado', mensaje:'✅ ¡Depósito recibido!\n\nSe acreditaron ${{monto}} fichas en tu cuenta.\n\n¡Buena suerte! 🍀', categoria:'carga' },
+            { id:7, tipo:'deposito_rechazado', mensaje:'❌ Tu depósito fue rechazado.\n\nMotivo: {{motivo}}\n\nIntentá nuevamente o contactá soporte.', categoria:'carga' },
+            { id:8, tipo:'retiro_datos', mensaje:'💸 Ingresá los datos para tu retiro:\n\n1️⃣ Monto a retirar\n2️⃣ CBU o ALIAS destino\n3️⃣ Titular de la cuenta', categoria:'retiro' },
+            { id:9, tipo:'retiro_procesando', mensaje:'⏳ Tu retiro de ${{monto}} está siendo procesado.\n\nTe avisaremos cuando se complete.', categoria:'retiro' },
+            { id:10, tipo:'retiro_completado', mensaje:'✅ ¡Retiro completado!\n\nSe enviaron ${{monto}} a tu cuenta.\n\nPodés verificar en tu banco.', categoria:'retiro' },
+            { id:11, tipo:'retiro_rechazado', mensaje:'❌ Tu retiro fue rechazado.\n\nMotivo: {{motivo}}', categoria:'retiro' },
+            { id:12, tipo:'soporte', mensaje:'🤝 Estás conectado con soporte.\n\nUn agente te atenderá en breve. Escribí tu consulta.', categoria:'soporte' },
+            { id:13, tipo:'cuponera', mensaje:'🎁 ¡Accedé a la cuponera!\n\nMirá las promociones disponibles.', categoria:'cuponera' },
+            { id:14, tipo:'error_generico', mensaje:'⚠️ Ocurrió un error. Por favor intentá nuevamente o contactá soporte.', categoria:'error' },
+            { id:15, tipo:'fuera_horario', mensaje:'🕐 Estamos fuera de horario de atención.\n\nHorario: {{horario}}\n\nDejá tu mensaje y te responderemos.', categoria:'soporte' },
+          ];
+          console.log(`[DataService] Loaded ${data.autoMessages.length} hardcoded default auto messages`);
+        }
+        // Persist to disk immediately so they don't disappear
+        fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2));
+        console.log('[DataService] Auto messages saved to store.json');
       }
       if (!data.pushSubscriptions) data.pushSubscriptions = [];
       if (!data.sentNotifications) data.sentNotifications = [];
