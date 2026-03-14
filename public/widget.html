@@ -3376,7 +3376,7 @@ html, body {
   // ACTIVITY TOAST
   // ============================================
   function showActivityToast(text) {
-    var panel = document.querySelector('.widget-panel');
+    var panel = document.getElementById('chat-container');
     if (!panel) return;
     var toast = document.createElement('div');
     toast.style.cssText = 'position:absolute;top:50px;left:10px;right:10px;background:rgba(30,30,50,0.95);border:1px solid rgba(212,168,67,0.3);border-radius:8px;padding:8px 12px;z-index:150;font-size:12px;color:#D4A843;text-align:center;animation:fadeIn 0.3s;';
@@ -3512,7 +3512,7 @@ html, body {
     card.appendChild(spinBtn);
     overlay.appendChild(card);
 
-    var panel = document.querySelector('.widget-panel');
+    var panel = document.getElementById('chat-container');
     if (panel) panel.appendChild(overlay);
   }
 
@@ -3646,7 +3646,7 @@ html, body {
 
     overlay.appendChild(card);
 
-    var panel = document.querySelector('.widget-panel');
+    var panel = document.getElementById('chat-container');
     if (panel) panel.appendChild(overlay);
 
     function revealCell(cellEl, idx, gridData) {
@@ -3792,7 +3792,7 @@ html, body {
     overlay.appendChild(card);
 
     // Add to widget panel
-    var panel = document.querySelector('.widget-panel');
+    var panel = document.getElementById('chat-container');
     if (panel) {
       panel.appendChild(overlay);
     }
