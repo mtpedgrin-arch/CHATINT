@@ -755,4 +755,39 @@ router.get('/casino/user-exists/:username', async (req: Request, res: Response) 
   }
 });
 
+// ── BONUS CONFIG ──────────────────────────────
+router.get('/bonus', (_req: Request, res: Response) => {
+  res.json(dataService.getActiveBonus());
+});
+
+router.put('/bonus', (req: Request, res: Response) => {
+  const { enabled, percentage, name } = req.body;
+  const bonus = dataService.updateActiveBonus({
+    enabled: enabled !== undefined ? enabled : undefined,
+    percentage: percentage !== undefined ? Number(percentage) : undefined,
+    name: name !== undefined ? name : undefined,
+  });
+
+  // Notify admin panel
+  const io = req.app.get('io');
+  if (io) {
+    io.to('agents').emit('bonus:updated', bonus);
+  }
+
+  console.log(`[Bonus] Updated: ${bonus.enabled ? bonus.name + ' (' + bonus.percentage + '%)' : 'DESACTIVADO'}`);
+  res.json(bonus);
+});
+
+// ── PRIZE TRANSACTIONS ──────────────────────────
+router.get('/prize-transactions', (req: Request, res: Response) => {
+  const limit = req.query.limit ? Number(req.query.limit) : 100;
+  const clientId = req.query.clientId ? Number(req.query.clientId) : null;
+
+  if (clientId) {
+    res.json(dataService.getPrizeTransactionsByClient(clientId));
+  } else {
+    res.json(dataService.getPrizeTransactions(limit));
+  }
+});
+
 export default router;

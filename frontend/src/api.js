@@ -91,6 +91,11 @@ export const deleteAccount = (id) => apiFetch(`/api/admin/accounts/${id}`, { met
 export const getSettings = () => apiFetch('/api/admin/settings');
 export const updateSettings = (data) => apiFetch('/api/admin/settings', { method: 'PUT', body: JSON.stringify(data) });
 
+// Bonus Config
+export const getBonus = () => apiFetch('/api/admin/bonus');
+export const updateBonus = (data) => apiFetch('/api/admin/bonus', { method: 'PUT', body: JSON.stringify(data) });
+export const getPrizeTransactions = (limit = 50) => apiFetch(`/api/admin/prize-transactions?limit=${limit}`);
+
 // Platform Token
 export const getProcessingMode = () => apiFetch('/api/admin/platform-token/processing-mode');
 export const updateProcessingMode = (mode) => apiFetch('/api/admin/platform-token/processing-mode', { method: 'PUT', body: JSON.stringify({ mode }) });

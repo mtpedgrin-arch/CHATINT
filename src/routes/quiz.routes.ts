@@ -222,22 +222,26 @@ function endQuizAndReward(quizId: string, app: any) {
 
   const io = app.get('io');
 
-  // Credit prizes to winners
+  // Credit prizes to winners (with bonus adjustment)
   correctAnswers.forEach(answer => {
-    const client = dataService.getClientById(answer.clientId);
-    if (client) {
-      dataService.updateClient(answer.clientId, {
-        balance: client.balance + quiz.prizeAmount,
-      });
+    const tx = dataService.creditPrize({
+      clientId: answer.clientId,
+      clientName: answer.clientName || '',
+      source: 'quiz',
+      sourceId: quiz.id,
+      amount: quiz.prizeAmount,
+    });
 
-      // Notify winner via socket
-      if (io) {
-        io.to(`client:${answer.clientId}`).emit('quiz:winner', {
-          quizId: quiz.id,
-          prizeAmount: quiz.prizeAmount,
-          question: quiz.question,
-        });
-      }
+    // Notify winner via socket
+    if (io) {
+      io.to(`client:${answer.clientId}`).emit('quiz:winner', {
+        quizId: quiz.id,
+        prizeAmount: quiz.prizeAmount,
+        question: quiz.question,
+        creditedAmount: tx ? tx.creditedAmount : quiz.prizeAmount,
+        bonusActive: tx ? tx.bonusActive : false,
+        bonusPercentage: tx ? tx.bonusPercentage : 0,
+      });
     }
   });
 

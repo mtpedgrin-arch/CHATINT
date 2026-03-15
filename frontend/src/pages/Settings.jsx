@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getSettings, updateSettings, getButtonOptions, updateButtonOptions } from '../api';
+import { getSettings, updateSettings, getButtonOptions, updateButtonOptions, getBonus, updateBonus, getPrizeTransactions } from '../api';
 import { useToast } from '../context/ToastContext';
 import ConfirmDialog from '../components/ConfirmDialog';
 
@@ -47,6 +47,8 @@ export default function Settings() {
     soporte: { type: 'option', link: '', enabled: true },
     cuponera: { type: 'option', link: '', enabled: true },
   });
+  const [bonus, setBonus] = useState({ enabled: false, percentage: 0, name: 'Sin bono' });
+  const [recentTx, setRecentTx] = useState([]);
 
   const fetchSettings = async () => {
     try {
@@ -82,9 +84,19 @@ export default function Settings() {
     } catch (e) {}
   };
 
+  const fetchBonus = async () => {
+    try {
+      const data = await getBonus();
+      setBonus(data);
+      const txs = await getPrizeTransactions(10);
+      setRecentTx(txs);
+    } catch (e) {}
+  };
+
   useEffect(() => {
     fetchSettings();
     fetchBtnOpts();
+    fetchBonus();
   }, []);
 
   const handleChange = (section, field, value) => {
@@ -124,6 +136,19 @@ export default function Settings() {
       toast(err.message, 'error');
     } finally {
       setSaving(prev => ({ ...prev, btnOpts: false }));
+    }
+  };
+
+  const handleSaveBonus = async () => {
+    setSaving(prev => ({ ...prev, bonus: true }));
+    try {
+      const result = await updateBonus(bonus);
+      setBonus(result);
+      toast(result.enabled ? `Bono activado: ${result.name} (${result.percentage}%)` : 'Bono desactivado');
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setSaving(prev => ({ ...prev, bonus: false }));
     }
   };
 
@@ -318,7 +343,119 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Card 4: Opciones de Botones */}
+        {/* Card 4: Bono Activo para Premios */}
+        <div className="card" style={{ border: bonus.enabled ? '1px solid #D4A843' : undefined }}>
+          <div className="card-header">
+            <span>{bonus.enabled ? '🔥' : '💰'} Bono Activo para Premios</span>
+            {bonus.enabled && (
+              <span style={{ background: '#D4A843', color: '#111', padding: '2px 10px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 700 }}>
+                {bonus.percentage}% ACTIVO
+              </span>
+            )}
+          </div>
+          <div className="card-body">
+            <p style={{ color: '#aaa', marginBottom: '1rem', fontSize: '0.85rem' }}>
+              Cuando hay bono activo, los premios se ajustan automáticamente. Ej: premio de $500 con bono 100% → se acreditan $250 (el casino duplica a $500).
+            </p>
+            <div className="form-group">
+              <label>Estado del Bono</label>
+              <div className="toggle-group">
+                <button
+                  type="button"
+                  className={`toggle-btn ${!bonus.enabled ? 'active' : ''}`}
+                  onClick={() => setBonus(prev => ({ ...prev, enabled: false }))}
+                >
+                  Desactivado
+                </button>
+                <button
+                  type="button"
+                  className={`toggle-btn ${bonus.enabled ? 'active' : ''}`}
+                  onClick={() => setBonus(prev => ({ ...prev, enabled: true }))}
+                  style={bonus.enabled ? { background: '#D4A843', color: '#111' } : {}}
+                >
+                  Activado
+                </button>
+              </div>
+            </div>
+            {bonus.enabled && (
+              <>
+                <div className="form-group">
+                  <label>Nombre del Bono</label>
+                  <input
+                    className="form-input"
+                    value={bonus.name}
+                    onChange={(e) => setBonus(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Bono 100%"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Porcentaje del Bono (%)</label>
+                  <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    {[30, 50, 100, 200].map(pct => (
+                      <button
+                        key={pct}
+                        type="button"
+                        className={`toggle-btn ${bonus.percentage === pct ? 'active' : ''}`}
+                        onClick={() => setBonus(prev => ({ ...prev, percentage: pct, name: `Bono ${pct}%` }))}
+                        style={{ fontSize: '0.8rem', padding: '4px 12px', ...(bonus.percentage === pct ? { background: '#D4A843', color: '#111' } : {}) }}
+                      >
+                        {pct}%
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    className="form-input"
+                    type="number"
+                    value={bonus.percentage}
+                    onChange={(e) => setBonus(prev => ({ ...prev, percentage: Number(e.target.value) }))}
+                    placeholder="100"
+                    min="1"
+                    max="500"
+                  />
+                  <span className="form-hint">
+                    Ejemplo: premio $1000, bono {bonus.percentage}% → se acreditan ${Math.round(1000 / (1 + bonus.percentage / 100))} fichas (casino agrega {bonus.percentage}% = $1000 total)
+                  </span>
+                </div>
+              </>
+            )}
+            <button
+              className="btn btn-gold"
+              onClick={handleSaveBonus}
+              disabled={saving.bonus}
+              style={{ width: '100%', marginTop: '0.5rem' }}
+            >
+              {saving.bonus ? 'Guardando...' : bonus.enabled ? `Activar Bono ${bonus.percentage}%` : 'Guardar (Bono Desactivado)'}
+            </button>
+
+            {/* Recent prize transactions */}
+            {recentTx.length > 0 && (
+              <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.75rem' }}>
+                <div style={{ fontSize: '0.8rem', color: '#888', marginBottom: '0.5rem' }}>Últimas acreditaciones:</div>
+                <div style={{ maxHeight: 200, overflow: 'auto' }}>
+                  {recentTx.map(tx => (
+                    <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', fontSize: '0.8rem', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                      <span style={{ color: '#ccc' }}>
+                        {tx.source === 'scratch' ? '🎫' : tx.source === 'roulette' ? '🎰' : tx.source === 'quiz' ? '❓' : tx.source === 'event' ? '🏆' : '🎯'}
+                        {' '}{tx.clientName || `#${tx.clientId}`}
+                      </span>
+                      <span>
+                        {tx.bonusActive ? (
+                          <span style={{ color: '#D4A843' }}>
+                            ${tx.creditedAmount.toLocaleString()} <span style={{ fontSize: '0.7rem', color: '#888' }}>(de ${tx.originalAmount.toLocaleString()}, bono {tx.bonusPercentage}%)</span>
+                          </span>
+                        ) : (
+                          <span style={{ color: '#4ade80' }}>${tx.originalAmount.toLocaleString()}</span>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Card 5: Opciones de Botones */}
         <div className="card" style={{ gridColumn: '1 / -1' }}>
           <div className="card-header">
             <span>Opciones de Botones del Widget</span>

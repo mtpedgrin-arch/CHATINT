@@ -129,6 +129,12 @@ export interface Account {
   createdAt: string;
 }
 
+export interface BonusConfig {
+  enabled: boolean;
+  percentage: number; // e.g. 100 means 100% bonus
+  name: string; // e.g. "Bono 100%"
+}
+
 export interface Settings {
   siteName: string;
   siteUrl: string;
@@ -140,6 +146,7 @@ export interface Settings {
   timezone: string;
   buttonOptions: ButtonOptions;
   modalConfig: ModalConfig;
+  activeBonus: BonusConfig;
 }
 
 export interface Label {
@@ -458,6 +465,19 @@ export interface PaltaConfig {
   errorMessage: string;
 }
 
+export interface PrizeTransaction {
+  id: string;
+  clientId: number;
+  clientName: string;
+  source: 'scratch' | 'roulette' | 'quiz' | 'event' | 'mission';
+  sourceId: string; // ID of the game/event
+  originalAmount: number; // Full prize amount
+  bonusActive: boolean;
+  bonusPercentage: number;
+  creditedAmount: number; // Amount actually credited (adjusted for bonus)
+  createdAt: string;
+}
+
 export interface Store {
   users: User[];
   clients: Client[];
@@ -490,6 +510,7 @@ export interface Store {
   paltaTransactions: PaltaTransaction[];
   paltaConfig: PaltaConfig;
   pushTrackingEvents: PushTrackingEvent[];
+  prizeTransactions: PrizeTransaction[];
 }
 
 class DataService {
@@ -529,7 +550,7 @@ class DataService {
             openai: { apiKey: '', model: 'gpt-4o-mini' },
           },
           accounts: [],
-          settings: { siteName: 'Casino 463', siteUrl: '', chatMode: 'auto' as const, accountMode: 'auto' as const, minRetiro: 0, minDeposito: 0, bonoBienvenida: '', timezone: 'America/Argentina/Buenos_Aires', buttonOptions: { carga: { type: 'option' as const, link: '', enabled: true }, retiro: { type: 'option' as const, link: '', enabled: true }, soporte: { type: 'option' as const, link: '', enabled: true }, cuponera: { type: 'link' as const, link: 'https://463.life', enabled: true } }, modalConfig: {} as any },
+          settings: { siteName: 'Casino 463', siteUrl: '', chatMode: 'auto' as const, accountMode: 'auto' as const, minRetiro: 0, minDeposito: 0, bonoBienvenida: '', timezone: 'America/Argentina/Buenos_Aires', buttonOptions: { carga: { type: 'option' as const, link: '', enabled: true }, retiro: { type: 'option' as const, link: '', enabled: true }, soporte: { type: 'option' as const, link: '', enabled: true }, cuponera: { type: 'link' as const, link: 'https://463.life', enabled: true } }, modalConfig: {} as any, activeBonus: { enabled: false, percentage: 0, name: 'Sin bono' } },
           chats: [], chatMessages: {}, payments: [], labels: [],
           pushSubscriptions: [], sentNotifications: [],
           popupMessages: [], popupTemplates: [],
@@ -543,6 +564,7 @@ class DataService {
           paltaTransactions: [],
           paltaConfig: { email: '', password: '', enabled: false, pollIntervalSeconds: 60, autoApprove: true, headless: true, lastPollAt: null, status: 'stopped' as const, errorMessage: '' },
           pushTrackingEvents: [],
+          prizeTransactions: [],
         };
         fs.writeFileSync(DATA_PATH, JSON.stringify(empty, null, 2));
       }
@@ -607,6 +629,7 @@ class DataService {
       if (!data.missions) data.missions = [];
       if (!data.missionProgress) data.missionProgress = [];
       if (!data.activityFeed) data.activityFeed = [];
+      if (!data.prizeTransactions) data.prizeTransactions = [];
       if (!data.paltaConfig) data.paltaConfig = {
         email: '', password: '', enabled: false,
         pollIntervalSeconds: 60, autoApprove: true,
@@ -621,6 +644,11 @@ class DataService {
       if (data.settings && !data.settings.accountMode) {
         data.settings.accountMode = (data.settings as any).telepagosAI ? 'auto' : 'auto';
         delete (data.settings as any).telepagosAI;
+      }
+
+      // Ensure activeBonus exists (backward compat)
+      if (data.settings && !data.settings.activeBonus) {
+        data.settings.activeBonus = { enabled: false, percentage: 0, name: 'Sin bono' };
       }
 
       // Fix: ensure admin users have a valid bcrypt hash for "123456"
@@ -1717,6 +1745,89 @@ class DataService {
     this.store.paltaConfig = { ...this.getPaltaConfig(), ...data };
     this.save();
     return this.store.paltaConfig;
+  }
+
+  // ── BONUS & PRIZE CREDITING ──────────────────────────
+  getActiveBonus(): BonusConfig {
+    return this.store.settings.activeBonus || { enabled: false, percentage: 0, name: 'Sin bono' };
+  }
+
+  updateActiveBonus(data: Partial<BonusConfig>): BonusConfig {
+    this.store.settings.activeBonus = { ...this.getActiveBonus(), ...data };
+    this.save();
+    return this.store.settings.activeBonus;
+  }
+
+  /**
+   * Credit prize to a client with automatic bonus adjustment.
+   * If a bonus is active (e.g. 100%), credits only the adjusted amount
+   * so that prize + bonus = original prize amount.
+   *
+   * Formula: creditedAmount = originalAmount / (1 + bonusPercentage/100)
+   * Example: prize=500, bonus=100% → credit=250 (250 + 100% bonus = 500)
+   *
+   * Returns the transaction record with all details.
+   */
+  creditPrize(params: {
+    clientId: number;
+    clientName: string;
+    source: PrizeTransaction['source'];
+    sourceId: string;
+    amount: number;
+  }): PrizeTransaction | null {
+    const { v4: uuid } = require('uuid');
+    const client = this.getClientById(params.clientId);
+    if (!client) return null;
+
+    const bonus = this.getActiveBonus();
+    let creditedAmount = params.amount;
+    let bonusActive = false;
+    let bonusPercentage = 0;
+
+    if (bonus.enabled && bonus.percentage > 0) {
+      bonusActive = true;
+      bonusPercentage = bonus.percentage;
+      // Adjust: if bonus is 100%, credit half (casino doubles it)
+      creditedAmount = Math.round(params.amount / (1 + bonus.percentage / 100));
+    }
+
+    // Update client balance
+    this.updateClient(params.clientId, {
+      balance: client.balance + creditedAmount,
+    });
+
+    // Record transaction
+    const tx: PrizeTransaction = {
+      id: uuid(),
+      clientId: params.clientId,
+      clientName: params.clientName,
+      source: params.source,
+      sourceId: params.sourceId,
+      originalAmount: params.amount,
+      bonusActive,
+      bonusPercentage,
+      creditedAmount,
+      createdAt: new Date().toISOString(),
+    };
+
+    if (!this.store.prizeTransactions) this.store.prizeTransactions = [];
+    this.store.prizeTransactions.push(tx);
+    this.save();
+
+    console.log(`[CreditPrize] ${params.clientName} (ID:${params.clientId}) - ${params.source}: premio=$${params.amount}, bono=${bonusActive ? bonusPercentage + '%' : 'OFF'}, acreditado=$${creditedAmount}`);
+
+    return tx;
+  }
+
+  getPrizeTransactions(limit?: number): PrizeTransaction[] {
+    const txs = (this.store.prizeTransactions || []).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    return limit ? txs.slice(0, limit) : txs;
+  }
+
+  getPrizeTransactionsByClient(clientId: number): PrizeTransaction[] {
+    return (this.store.prizeTransactions || []).filter(tx => tx.clientId === clientId);
   }
 }
 

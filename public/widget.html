@@ -3743,17 +3743,15 @@ html, body {
     var hint = document.createElement('div');
     hint.id = 'scratch-hint';
     hint.style.cssText = 'font-size:12px;color:#888;margin-bottom:4px;';
-    hint.innerHTML = '👆 <b>Raspá con el dedo</b> para descubrir tu premio';
+    hint.innerHTML = '👆 <b>Raspá y encontrá 3 iguales</b> para ganar';
     card.appendChild(hint);
 
-    // Progress bar
-    var progressBar = document.createElement('div');
-    progressBar.style.cssText = 'width:100%;height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;margin-bottom:8px;';
-    var progressFill = document.createElement('div');
-    progressFill.id = 'scratch-progress';
-    progressFill.style.cssText = 'height:100%;width:0%;background:linear-gradient(90deg,#D4A843,#f59e0b);border-radius:2px;transition:width 0.3s;';
-    progressBar.appendChild(progressFill);
-    card.appendChild(progressBar);
+    // Cell reveal counter
+    var cellCounter = document.createElement('div');
+    cellCounter.id = 'scratch-cell-counter';
+    cellCounter.style.cssText = 'font-size:13px;color:#D4A843;margin-bottom:8px;min-height:20px;';
+    cellCounter.textContent = '';
+    card.appendChild(cellCounter);
 
     // Close button (small X)
     var closeX = document.createElement('button');
@@ -3769,9 +3767,12 @@ html, body {
     // ── Canvas scratch logic ──
     var ctx = canvas.getContext('2d');
     var isScratching = false;
-    var revealThreshold = 25; // % of area scratched to auto-reveal
     var finished = false; // true once result is shown
     var hasScratched = false; // true after first scratch interaction
+    var cellSize = 90; // 270 / 3 = 90px per cell
+    var cellRevealThreshold = 45; // % of a single cell that must be scratched to count as "revealed"
+    var revealedCells = [false, false, false, false, false, false, false, false, false]; // 9 cells
+    var cellEmojis = ['❓','❓','❓','❓','❓','❓','❓','❓','❓']; // filled by API
 
     // === CALL API IMMEDIATELY when popup opens (don't wait for scratch) ===
     var apiPromise = null;
@@ -3804,6 +3805,7 @@ html, body {
         var emoji = res.grid && res.grid[row] && res.grid[row][col] ? res.grid[row][col] : '❓';
         c.textContent = emoji;
         c.style.fontSize = '36px';
+        cellEmojis[idx] = emoji;
         if (res.won && res.prizeEmoji && emoji === res.prizeEmoji) {
           c.style.background = 'linear-gradient(135deg,rgba(212,168,67,0.2),rgba(212,168,67,0.05))';
           c.style.boxShadow = 'inset 0 0 15px rgba(212,168,67,0.2)';
@@ -3842,7 +3844,7 @@ html, body {
       ctx.setLineDash([]);
       ctx.font = 'bold 22px Arial, sans-serif'; ctx.textAlign = 'center';
       ctx.fillStyle = 'rgba(80,80,80,0.5)'; ctx.fillText('RASPÁ AQUÍ', 135, 125);
-      ctx.font = '14px Arial, sans-serif'; ctx.fillText('↕ ↔', 135, 155);
+      ctx.font = '14px Arial, sans-serif'; ctx.fillText('Encontrá 3 iguales', 135, 155);
       ctx.fillStyle = 'rgba(212,168,67,0.3)';
       for (var s = 0; s < 15; s++) {
         ctx.beginPath(); ctx.arc(Math.random() * 270, Math.random() * 270, Math.random() * 3 + 1, 0, Math.PI * 2); ctx.fill();
@@ -3870,11 +3872,75 @@ html, body {
       return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
     }
 
-    function getScratchPercentage() {
-      var pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-      var total = pixels.length / 4, transparent = 0;
-      for (var i = 3; i < pixels.length; i += 4) { if (pixels[i] === 0) transparent++; }
+    // Get scratch % for a specific cell (0-8)
+    function getCellScratchPercent(cellIndex) {
+      var row = Math.floor(cellIndex / 3);
+      var col = cellIndex % 3;
+      var x0 = col * cellSize;
+      var y0 = row * cellSize;
+      var imgData = ctx.getImageData(x0, y0, cellSize, cellSize).data;
+      var total = imgData.length / 4;
+      var transparent = 0;
+      for (var i = 3; i < imgData.length; i += 4) {
+        if (imgData[i] === 0) transparent++;
+      }
       return (transparent / total) * 100;
+    }
+
+    // Check which cells are revealed and if 3 matching emojis found
+    function checkCellReveals() {
+      if (finished) return;
+      var newlyRevealed = false;
+      for (var i = 0; i < 9; i++) {
+        if (!revealedCells[i]) {
+          var pct = getCellScratchPercent(i);
+          if (pct >= cellRevealThreshold) {
+            revealedCells[i] = true;
+            newlyRevealed = true;
+            console.log('[SCRATCH] Cell ' + i + ' revealed! emoji: ' + cellEmojis[i]);
+          }
+        }
+      }
+
+      if (newlyRevealed) {
+        // Update counter display
+        var revealedCount = revealedCells.filter(function(r) { return r; }).length;
+        var counterEl = document.getElementById('scratch-cell-counter');
+
+        // Build display of revealed emojis
+        var revealedEmojiList = [];
+        for (var j = 0; j < 9; j++) {
+          if (revealedCells[j]) revealedEmojiList.push(cellEmojis[j]);
+        }
+        if (counterEl && revealedCount > 0) {
+          counterEl.innerHTML = '🔍 Descubiertas: ' + revealedEmojiList.join(' ') + ' <span style="color:#666">(' + revealedCount + '/9)</span>';
+        }
+
+        // Count emoji occurrences among revealed cells
+        var emojiCounts = {};
+        for (var k = 0; k < 9; k++) {
+          if (revealedCells[k]) {
+            var em = cellEmojis[k];
+            emojiCounts[em] = (emojiCounts[em] || 0) + 1;
+          }
+        }
+
+        // Check if any emoji has 3 revealed → trigger result!
+        for (var emoji in emojiCounts) {
+          if (emojiCounts[emoji] >= 3) {
+            console.log('[SCRATCH] Found 3 matching: ' + emoji + '! Revealing result.');
+            // Brief highlight delay then reveal
+            var counterEl2 = document.getElementById('scratch-cell-counter');
+            if (counterEl2) {
+              counterEl2.innerHTML = '🎉 <b>¡3 ' + emoji + ' encontrados!</b>';
+              counterEl2.style.color = '#4ade80';
+              counterEl2.style.fontSize = '15px';
+            }
+            setTimeout(function() { revealAll(); }, 800);
+            return;
+          }
+        }
+      }
     }
 
     // === REVEAL: fade canvas then show result (waits for API) ===
@@ -3884,8 +3950,6 @@ html, body {
       console.log('[SCRATCH] Revealing! apiResult:', apiResult ? 'ready' : 'waiting...');
       canvas.style.transition = 'opacity 0.6s'; canvas.style.opacity = '0';
       canvas.style.pointerEvents = 'none'; isScratching = false;
-      var progressEl = document.getElementById('scratch-progress');
-      if (progressEl) progressEl.style.width = '100%';
       var hintEl = document.getElementById('scratch-hint');
       if (hintEl) hintEl.style.display = 'none';
 
@@ -3916,22 +3980,16 @@ html, body {
       var pos = getPos(e);
       scratch(pos.x, pos.y);
       var now = Date.now();
-      if (now - lastCheck > 300) {
+      if (now - lastCheck > 250) {
         lastCheck = now;
-        var pct = getScratchPercentage();
-        var progressEl = document.getElementById('scratch-progress');
-        if (progressEl) progressEl.style.width = Math.min(pct / revealThreshold * 100, 100) + '%';
-        if (pct >= revealThreshold) revealAll();
+        checkCellReveals();
       }
     }
 
-    // Check scratch % and auto-reveal if threshold met
+    // Check cells on mouse/touch up
     function checkAndReveal() {
       if (finished) return;
-      var pct = getScratchPercentage();
-      var progressEl = document.getElementById('scratch-progress');
-      if (progressEl) progressEl.style.width = Math.min(pct / revealThreshold * 100, 100) + '%';
-      if (pct >= revealThreshold) revealAll();
+      checkCellReveals();
     }
 
     // Mouse events
@@ -3946,34 +4004,33 @@ html, body {
     canvas.addEventListener('touchend', function() { isScratching = false; checkAndReveal(); });
     canvas.addEventListener('touchcancel', function() { isScratching = false; });
 
-    // === "REVELAR" button appears after 2s of first scratch ===
+    // === "REVELAR" button appears after 8s as fallback ===
     var revealBtn = document.createElement('button');
     revealBtn.id = 'scratch-reveal-btn';
     revealBtn.textContent = '✨ REVELAR PREMIO';
     revealBtn.style.cssText = 'display:none;margin-top:8px;padding:10px 24px;background:linear-gradient(135deg,#D4A843,#f59e0b);border:none;border-radius:8px;color:#111;cursor:pointer;font-size:14px;font-weight:700;letter-spacing:0.5px;animation:fadeIn 0.5s;';
     revealBtn.onclick = function() { revealAll(); };
-    // Insert before the close X button
     card.appendChild(revealBtn);
 
-    // Show reveal button after 2 seconds of scratching OR auto-reveal after 5 seconds
+    // Fallback timers (in case user can't find 3 matching)
     var revealBtnTimer = null;
     var autoRevealTimer = null;
 
     function startRevealTimers() {
       if (revealBtnTimer) return; // already started
-      // Show "REVELAR" button after 2s
+      // Show "REVELAR" button after 8s as escape hatch
       revealBtnTimer = setTimeout(function() {
         if (!finished) {
           revealBtn.style.display = 'block';
         }
-      }, 2000);
-      // Auto-reveal after 5 seconds no matter what
+      }, 8000);
+      // Auto-reveal after 15 seconds no matter what
       autoRevealTimer = setTimeout(function() {
         if (!finished) {
-          console.log('[SCRATCH] Auto-reveal after 5s timeout');
+          console.log('[SCRATCH] Auto-reveal after 15s timeout');
           revealAll();
         }
-      }, 5000);
+      }, 15000);
     }
 
     // Start timers on first interaction

@@ -144,9 +144,15 @@ router.post('/roulettes/:id/spin', (req: Request, res: Response) => {
     won, prizeLabel: winSegment.label, prizeAmount: won ? winSegment.amount : 0, segmentIndex: winIndex,
   });
 
+  let creditTx: any = null;
   if (won) {
-    const client = dataService.getClientById(Number(clientId));
-    if (client) dataService.updateClient(Number(clientId), { balance: client.balance + winSegment.amount });
+    creditTx = dataService.creditPrize({
+      clientId: Number(clientId),
+      clientName: clientName || '',
+      source: 'roulette',
+      sourceId: r.id,
+      amount: winSegment.amount,
+    });
 
     // Activity feed
     dataService.addActivityFeedItem({
@@ -178,7 +184,13 @@ router.post('/roulettes/:id/spin', (req: Request, res: Response) => {
   const targetAngle = 360 - (winIndex * degreesPerSegment + degreesPerSegment / 2);
   const totalRotation = 360 * 5 + targetAngle; // 5 full spins + target
 
-  res.json({ won, prizeLabel: spin.prizeLabel, prizeAmount: spin.prizeAmount, prizeEmoji: winSegment.emoji, segmentIndex: winIndex, rotation: totalRotation });
+  res.json({
+    won, prizeLabel: spin.prizeLabel, prizeAmount: spin.prizeAmount, prizeEmoji: winSegment.emoji,
+    segmentIndex: winIndex, rotation: totalRotation,
+    creditedAmount: creditTx ? creditTx.creditedAmount : spin.prizeAmount,
+    bonusActive: creditTx ? creditTx.bonusActive : false,
+    bonusPercentage: creditTx ? creditTx.bonusPercentage : 0,
+  });
 });
 
 export default router;

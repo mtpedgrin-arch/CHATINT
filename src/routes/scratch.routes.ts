@@ -182,14 +182,15 @@ router.post('/scratch-cards/:id/play', (req: Request, res: Response) => {
     prizeAmount: won && wonPrize ? wonPrize.amount : 0,
   });
 
-  // Credit prize if won
+  // Credit prize if won (with bonus adjustment)
   if (won && wonPrize) {
-    const client = dataService.getClientById(Number(clientId));
-    if (client) {
-      dataService.updateClient(Number(clientId), {
-        balance: client.balance + wonPrize.amount,
-      });
-    }
+    const tx = dataService.creditPrize({
+      clientId: Number(clientId),
+      clientName: clientName || '',
+      source: 'scratch',
+      sourceId: card.id,
+      amount: wonPrize.amount,
+    });
 
     const io = req.app.get('io');
     if (io) {
@@ -198,6 +199,9 @@ router.post('/scratch-cards/:id/play', (req: Request, res: Response) => {
         prizeAmount: wonPrize.amount,
         prizeLabel: wonPrize.label,
         prizeEmoji: wonPrize.emoji,
+        creditedAmount: tx ? tx.creditedAmount : wonPrize.amount,
+        bonusActive: tx ? tx.bonusActive : false,
+        bonusPercentage: tx ? tx.bonusPercentage : 0,
       });
     }
   }

@@ -131,10 +131,15 @@ router.post('/missions/:id/claim', (req: Request, res: Response) => {
   if (!prog.completed) return res.status(400).json({ error: 'Mision no completada' });
   if (prog.claimed) return res.status(400).json({ error: 'Ya reclamaste el premio' });
 
-  // Credit reward
+  // Credit reward (with bonus adjustment)
   if (mission.rewardType === 'fichas') {
-    const client = dataService.getClientById(Number(clientId));
-    if (client) dataService.updateClient(Number(clientId), { balance: client.balance + mission.rewardAmount });
+    dataService.creditPrize({
+      clientId: Number(clientId),
+      clientName: prog.clientName || '',
+      source: 'mission',
+      sourceId: mission.id,
+      amount: mission.rewardAmount,
+    });
   }
 
   const updated = dataService.updateMissionProgress(prog.id, { claimed: true, claimedAt: new Date().toISOString() });

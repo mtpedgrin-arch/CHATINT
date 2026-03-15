@@ -225,14 +225,18 @@ router.post('/admin/events/:id/claim', (req: Request, res: Response) => {
   if (event.status !== 'drawn') return res.status(400).json({ error: 'El evento no tiene un ganador sorteado' });
   if (event.winnerClaimed) return res.status(400).json({ error: 'El premio ya fue reclamado' });
 
-  // Credit prize to winner
+  // Credit prize to winner (with bonus adjustment)
+  let creditTx: any = null;
   if (event.winnerClientId) {
-    const client = dataService.getClientById(event.winnerClientId);
-    if (client) {
-      dataService.updateClient(event.winnerClientId, {
-        balance: client.balance + event.prizeAmount,
-      });
-    }
+    // Find winner name
+    const winnerEntry = dataService.getEventEntries(event.id).find(e => e.clientId === event.winnerClientId);
+    creditTx = dataService.creditPrize({
+      clientId: event.winnerClientId,
+      clientName: winnerEntry?.clientName || '',
+      source: 'event',
+      sourceId: event.id,
+      amount: event.prizeAmount,
+    });
   }
 
   dataService.updateEvent(event.id, {
@@ -248,11 +252,13 @@ router.post('/admin/events/:id/claim', (req: Request, res: Response) => {
       io.to(`client:${event.winnerClientId}`).emit('event:prize-claimed', {
         eventId: event.id,
         prizeAmount: event.prizeAmount,
+        creditedAmount: creditTx ? creditTx.creditedAmount : event.prizeAmount,
+        bonusActive: creditTx ? creditTx.bonusActive : false,
       });
     }
   }
 
-  res.json({ ok: true, prizeAmount: event.prizeAmount, clientId: event.winnerClientId });
+  res.json({ ok: true, prizeAmount: event.prizeAmount, creditedAmount: creditTx ? creditTx.creditedAmount : event.prizeAmount, clientId: event.winnerClientId });
 });
 
 // ============================================
@@ -336,13 +342,15 @@ router.post('/events/:id/claim-prize', (req: Request, res: Response) => {
     return res.status(403).json({ error: 'No sos el ganador de este evento' });
   }
 
-  // Credit prize
-  const client = dataService.getClientById(event.winnerClientId!);
-  if (client) {
-    dataService.updateClient(event.winnerClientId!, {
-      balance: client.balance + event.prizeAmount,
-    });
-  }
+  // Credit prize (with bonus adjustment)
+  const winnerEntry = dataService.getEventEntries(event.id).find(e => e.clientId === event.winnerClientId);
+  const creditTx2 = dataService.creditPrize({
+    clientId: event.winnerClientId!,
+    clientName: winnerEntry?.clientName || '',
+    source: 'event',
+    sourceId: event.id,
+    amount: event.prizeAmount,
+  });
 
   dataService.updateEvent(event.id, {
     winnerClaimed: true,
@@ -354,7 +362,7 @@ router.post('/events/:id/claim-prize', (req: Request, res: Response) => {
     io.to('agents').emit('event:claimed', { eventId: event.id });
   }
 
-  res.json({ ok: true, prizeAmount: event.prizeAmount });
+  res.json({ ok: true, prizeAmount: event.prizeAmount, creditedAmount: creditTx2 ? creditTx2.creditedAmount : event.prizeAmount });
 });
 
 // ============================================
