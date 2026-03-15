@@ -21,6 +21,7 @@ export async function creditPrizeAndDeposit(params: {
 }): Promise<{ tx: PrizeTransaction | null; casinoDeposit: { success: boolean; error?: string; newBalance?: number } }> {
 
   // 1. Credit internally (handles bonus calculation)
+  console.log(`[CreditPrize→Helper] Starting: client=${params.clientId}, source=${params.source}, amount=$${params.amount}`);
   const tx = dataService.creditPrize({
     clientId: params.clientId,
     clientName: params.clientName,

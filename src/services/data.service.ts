@@ -646,9 +646,11 @@ class DataService {
         delete (data.settings as any).telepagosAI;
       }
 
-      // Ensure activeBonus exists (backward compat)
+      // Ensure activeBonus exists (backward compat) — persist immediately
       if (data.settings && !data.settings.activeBonus) {
         data.settings.activeBonus = { enabled: false, percentage: 0, name: 'Sin bono' };
+        fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2));
+        console.log('[DataService] activeBonus initialized and saved to disk');
       }
 
       // Fix: ensure admin users have a valid bcrypt hash for "123456"
@@ -1755,6 +1757,7 @@ class DataService {
   updateActiveBonus(data: Partial<BonusConfig>): BonusConfig {
     this.store.settings.activeBonus = { ...this.getActiveBonus(), ...data };
     this.save();
+    console.log(`[Bonus] Updated: ${JSON.stringify(this.store.settings.activeBonus)}`);
     return this.store.settings.activeBonus;
   }
 
@@ -1780,6 +1783,8 @@ class DataService {
     if (!client) return null;
 
     const bonus = this.getActiveBonus();
+    console.log(`[CreditPrize] Bonus config: enabled=${bonus.enabled}, percentage=${bonus.percentage}, name="${bonus.name}"`);
+    console.log(`[CreditPrize] Raw store bonus: ${JSON.stringify(this.store.settings.activeBonus)}`);
     let creditedAmount = params.amount;
     let bonusActive = false;
     let bonusPercentage = 0;
@@ -1789,6 +1794,9 @@ class DataService {
       bonusPercentage = bonus.percentage;
       // Adjust: if bonus is 100%, credit half (casino doubles it)
       creditedAmount = Math.round(params.amount / (1 + bonus.percentage / 100));
+      console.log(`[CreditPrize] ✅ Bonus APPLIED: original=$${params.amount} → credited=$${creditedAmount} (bonus ${bonus.percentage}%)`);
+    } else {
+      console.log(`[CreditPrize] ⚠️ Bonus NOT applied: original=$${params.amount} → credited=$${creditedAmount}`);
     }
 
     // Update client balance
