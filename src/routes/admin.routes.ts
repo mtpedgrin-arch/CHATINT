@@ -757,16 +757,20 @@ router.get('/casino/user-exists/:username', async (req: Request, res: Response) 
 
 // ── BONUS CONFIG ──────────────────────────────
 router.get('/bonus', (_req: Request, res: Response) => {
-  res.json(dataService.getActiveBonus());
+  const bonus = dataService.getActiveBonus();
+  console.log(`[Bonus] GET → enabled=${bonus.enabled}, pct=${bonus.percentage}, name="${bonus.name}"`);
+  res.json(bonus);
 });
 
 router.put('/bonus', (req: Request, res: Response) => {
   const { enabled, percentage, name } = req.body;
-  const bonus = dataService.updateActiveBonus({
-    enabled: enabled !== undefined ? enabled : undefined,
-    percentage: percentage !== undefined ? Number(percentage) : undefined,
-    name: name !== undefined ? name : undefined,
-  });
+  // Only include fields that were actually sent (avoid undefined overwrite)
+  const update: any = {};
+  if (enabled !== undefined) update.enabled = enabled;
+  if (percentage !== undefined) update.percentage = Number(percentage);
+  if (name !== undefined) update.name = name;
+  console.log(`[Bonus] PUT received: body=${JSON.stringify(req.body)} → update=${JSON.stringify(update)}`);
+  const bonus = dataService.updateActiveBonus(update);
 
   // Notify admin panel
   const io = req.app.get('io');

@@ -1755,9 +1755,14 @@ class DataService {
   }
 
   updateActiveBonus(data: Partial<BonusConfig>): BonusConfig {
-    this.store.settings.activeBonus = { ...this.getActiveBonus(), ...data };
+    // Filter out undefined values to prevent overwriting existing config
+    const cleanData: any = {};
+    Object.entries(data).forEach(([key, val]) => {
+      if (val !== undefined) cleanData[key] = val;
+    });
+    this.store.settings.activeBonus = { ...this.getActiveBonus(), ...cleanData };
     this.save();
-    console.log(`[Bonus] Updated: ${JSON.stringify(this.store.settings.activeBonus)}`);
+    console.log(`[Bonus] Updated & saved: ${JSON.stringify(this.store.settings.activeBonus)}`);
     return this.store.settings.activeBonus;
   }
 
