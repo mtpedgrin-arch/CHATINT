@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { dataService } from '../services/data.service';
+import { creditPrizeAndDeposit } from '../services/prize.helper';
 
 const router = Router();
 
@@ -120,7 +121,7 @@ router.post('/missions/:id/progress', (req: Request, res: Response) => {
 });
 
 // Claim mission reward
-router.post('/missions/:id/claim', (req: Request, res: Response) => {
+router.post('/missions/:id/claim', async (req: Request, res: Response) => {
   const { clientId } = req.body;
   if (!clientId) return res.status(400).json({ error: 'clientId requerido' });
   const mission = dataService.getMissionById(req.params.id);
@@ -131,14 +132,16 @@ router.post('/missions/:id/claim', (req: Request, res: Response) => {
   if (!prog.completed) return res.status(400).json({ error: 'Mision no completada' });
   if (prog.claimed) return res.status(400).json({ error: 'Ya reclamaste el premio' });
 
-  // Credit reward (with bonus adjustment)
+  // Credit reward (with bonus adjustment + casino deposit)
   if (mission.rewardType === 'fichas') {
-    dataService.creditPrize({
+    const io = req.app.get('io');
+    await creditPrizeAndDeposit({
       clientId: Number(clientId),
       clientName: prog.clientName || '',
       source: 'mission',
       sourceId: mission.id,
       amount: mission.rewardAmount,
+      io,
     });
   }
 

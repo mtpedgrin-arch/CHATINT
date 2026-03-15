@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { dataService } from '../services/data.service';
+import { creditPrizeAndDeposit } from '../services/prize.helper';
 
 const router = Router();
 
@@ -219,32 +220,32 @@ router.post('/admin/events/:id/draw', (req: Request, res: Response) => {
 });
 
 // Claim prize (can be called by admin or widget)
-router.post('/admin/events/:id/claim', (req: Request, res: Response) => {
+router.post('/admin/events/:id/claim', async (req: Request, res: Response) => {
   const event = dataService.getEventById(req.params.id);
   if (!event) return res.status(404).json({ error: 'Evento no encontrado' });
   if (event.status !== 'drawn') return res.status(400).json({ error: 'El evento no tiene un ganador sorteado' });
   if (event.winnerClaimed) return res.status(400).json({ error: 'El premio ya fue reclamado' });
 
-  // Credit prize to winner (with bonus adjustment)
+  // Credit prize to winner (with bonus adjustment + casino deposit)
+  const io = req.app.get('io');
   let creditTx: any = null;
   if (event.winnerClientId) {
-    // Find winner name
     const winnerEntry = dataService.getEventEntries(event.id).find(e => e.clientId === event.winnerClientId);
-    creditTx = dataService.creditPrize({
+    const result = await creditPrizeAndDeposit({
       clientId: event.winnerClientId,
       clientName: winnerEntry?.clientName || '',
       source: 'event',
       sourceId: event.id,
       amount: event.prizeAmount,
+      io,
     });
+    creditTx = result.tx;
   }
 
   dataService.updateEvent(event.id, {
     winnerClaimed: true,
     status: 'claimed',
   });
-
-  const io = req.app.get('io');
   if (io) {
     io.to('agents').emit('event:claimed', { eventId: event.id });
     // Notify winner
@@ -331,7 +332,7 @@ router.post('/events/:id/join', (req: Request, res: Response) => {
 });
 
 // Widget claim prize endpoint (no auth, uses clientId)
-router.post('/events/:id/claim-prize', (req: Request, res: Response) => {
+router.post('/events/:id/claim-prize', async (req: Request, res: Response) => {
   const event = dataService.getEventById(req.params.id);
   if (!event) return res.status(404).json({ error: 'Evento no encontrado' });
   if (event.status !== 'drawn') return res.status(400).json({ error: 'No hay premio para reclamar' });
@@ -342,14 +343,16 @@ router.post('/events/:id/claim-prize', (req: Request, res: Response) => {
     return res.status(403).json({ error: 'No sos el ganador de este evento' });
   }
 
-  // Credit prize (with bonus adjustment)
+  // Credit prize (with bonus adjustment + casino deposit)
   const winnerEntry = dataService.getEventEntries(event.id).find(e => e.clientId === event.winnerClientId);
-  const creditTx2 = dataService.creditPrize({
+  const io = req.app.get('io');
+  const { tx: creditTx2 } = await creditPrizeAndDeposit({
     clientId: event.winnerClientId!,
     clientName: winnerEntry?.clientName || '',
     source: 'event',
     sourceId: event.id,
     amount: event.prizeAmount,
+    io,
   });
 
   dataService.updateEvent(event.id, {
@@ -357,7 +360,6 @@ router.post('/events/:id/claim-prize', (req: Request, res: Response) => {
     status: 'claimed',
   });
 
-  const io = req.app.get('io');
   if (io) {
     io.to('agents').emit('event:claimed', { eventId: event.id });
   }

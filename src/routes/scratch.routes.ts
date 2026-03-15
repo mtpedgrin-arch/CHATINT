@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { dataService } from '../services/data.service';
+import { creditPrizeAndDeposit } from '../services/prize.helper';
 
 const router = Router();
 
@@ -145,7 +146,7 @@ router.get('/scratch-cards/active', (_req: Request, res: Response) => {
 });
 
 // Play scratch card
-router.post('/scratch-cards/:id/play', (req: Request, res: Response) => {
+router.post('/scratch-cards/:id/play', async (req: Request, res: Response) => {
   const card = dataService.getScratchCardById(req.params.id);
   if (!card) return res.status(404).json({ error: 'No encontrado' });
   if (card.status !== 'active') return res.status(400).json({ error: 'No esta activo' });
@@ -182,17 +183,18 @@ router.post('/scratch-cards/:id/play', (req: Request, res: Response) => {
     prizeAmount: won && wonPrize ? wonPrize.amount : 0,
   });
 
-  // Credit prize if won (with bonus adjustment)
+  // Credit prize if won (with bonus adjustment + casino deposit)
   if (won && wonPrize) {
-    const tx = dataService.creditPrize({
+    const io = req.app.get('io');
+    const { tx } = await creditPrizeAndDeposit({
       clientId: Number(clientId),
       clientName: clientName || '',
       source: 'scratch',
       sourceId: card.id,
       amount: wonPrize.amount,
+      io,
     });
 
-    const io = req.app.get('io');
     if (io) {
       io.to(`client:${clientId}`).emit('scratch:won', {
         scratchCardId: card.id,

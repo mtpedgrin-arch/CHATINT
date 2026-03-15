@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { dataService } from '../services/data.service';
+import { creditPrizeAndDeposit } from '../services/prize.helper';
 
 const router = Router();
 
@@ -114,7 +115,7 @@ router.get('/roulettes/active', (_req: Request, res: Response) => {
   });
 });
 
-router.post('/roulettes/:id/spin', (req: Request, res: Response) => {
+router.post('/roulettes/:id/spin', async (req: Request, res: Response) => {
   const r = dataService.getRouletteById(req.params.id);
   if (!r) return res.status(404).json({ error: 'No encontrada' });
   if (r.status !== 'active') return res.status(400).json({ error: 'No esta activa' });
@@ -146,13 +147,16 @@ router.post('/roulettes/:id/spin', (req: Request, res: Response) => {
 
   let creditTx: any = null;
   if (won) {
-    creditTx = dataService.creditPrize({
+    const io = req.app.get('io');
+    const result = await creditPrizeAndDeposit({
       clientId: Number(clientId),
       clientName: clientName || '',
       source: 'roulette',
       sourceId: r.id,
       amount: winSegment.amount,
+      io,
     });
+    creditTx = result.tx;
 
     // Activity feed
     dataService.addActivityFeedItem({

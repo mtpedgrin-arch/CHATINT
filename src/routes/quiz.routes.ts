@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { dataService } from '../services/data.service';
+import { creditPrizeAndDeposit } from '../services/prize.helper';
 
 const router = Router();
 
@@ -204,7 +205,7 @@ router.post('/quizzes/:id/answer', (req: Request, res: Response) => {
 // HELPERS
 // ============================================
 
-function endQuizAndReward(quizId: string, app: any) {
+async function endQuizAndReward(quizId: string, app: any) {
   const quiz = dataService.getQuizById(quizId);
   if (!quiz || quiz.status !== 'active') return;
 
@@ -222,14 +223,15 @@ function endQuizAndReward(quizId: string, app: any) {
 
   const io = app.get('io');
 
-  // Credit prizes to winners (with bonus adjustment)
-  correctAnswers.forEach(answer => {
-    const tx = dataService.creditPrize({
+  // Credit prizes to winners (with bonus adjustment + casino deposit)
+  for (const answer of correctAnswers) {
+    const { tx } = await creditPrizeAndDeposit({
       clientId: answer.clientId,
       clientName: answer.clientName || '',
       source: 'quiz',
       sourceId: quiz.id,
       amount: quiz.prizeAmount,
+      io,
     });
 
     // Notify winner via socket
@@ -243,7 +245,7 @@ function endQuizAndReward(quizId: string, app: any) {
         bonusPercentage: tx ? tx.bonusPercentage : 0,
       });
     }
-  });
+  }
 
   // Broadcast quiz ended to all
   if (io) {
